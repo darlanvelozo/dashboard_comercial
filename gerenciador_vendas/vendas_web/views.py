@@ -32,22 +32,25 @@ def dashboard_data(request):
             ativo=True
         ).aggregate(total=Sum('valor'))['total'] or 0
         
-        # Contatos
-        total_contatos = HistoricoContato.objects.count()
-        contatos_hoje = HistoricoContato.objects.filter(
-            data_hora_contato__date=hoje
-        ).count()
+        # Métricas do funil de vendas - HOJE
+        insights_hoje = HistoricoContato.get_funil_insights(
+            data_inicio=timezone.now().replace(hour=0, minute=0, second=0, microsecond=0),
+            data_fim=timezone.now()
+        )
         
-        # Taxa de finalização (fluxo_finalizado vs total)
-        contatos_finalizados = HistoricoContato.objects.filter(
-            status='fluxo_finalizado'
-        ).count()
-        taxa_finalizacao = (contatos_finalizados / total_contatos * 100) if total_contatos > 0 else 0
+        # Métricas do funil de vendas - SEMANA ATUAL
+        inicio_semana = timezone.now().date() - timedelta(days=timezone.now().weekday())
+        insights_semana = HistoricoContato.get_funil_insights(
+            data_inicio=timezone.make_aware(datetime.combine(inicio_semana, datetime.min.time())),
+            data_fim=timezone.now()
+        )
         
-        # Transferidos para humano
-        transferidos_humano = HistoricoContato.objects.filter(
-            status='transferido_humano'
-        ).count()
+        # Métricas do funil de vendas - MÊS ATUAL
+        inicio_mes = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        insights_mes = HistoricoContato.get_funil_insights(
+            data_inicio=inicio_mes,
+            data_fim=timezone.now()
+        )
         
         # Métricas de performance
         prospectos_erro = Prospecto.objects.filter(status='erro').count()
@@ -71,18 +74,60 @@ def dashboard_data(request):
         
         data = {
             'stats': {
+                # Métricas gerais
                 'totalLeads': total_leads,
                 'totalProspectos': total_prospectos,
                 'leadsHoje': leads_hoje,
                 'valorTotal': f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                'totalContatos': total_contatos,
-                'contatosHoje': contatos_hoje,
-                'taxaFinalizacao': f"{taxa_finalizacao:.1f}%",
-                'transferidosHumano': transferidos_humano,
                 'prospectosErro': prospectos_erro,
                 'tempoMedio': f"{tempo_medio:.1f}s",
                 'mediaValor': f"R$ {media_valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                'leadsComValor': leads_com_valor
+                'leadsComValor': leads_com_valor,
+                
+                # Funil de vendas - HOJE
+                'funil_hoje': {
+                    'total_contatos': insights_hoje['total_contatos'],
+                    'fluxos_inicializados': insights_hoje['fluxos_inicializados'],
+                    'fluxos_finalizados': insights_hoje['fluxos_finalizados'],
+                    'transferidos_humano': insights_hoje['transferidos_humano'],
+                    'convertidos_lead': insights_hoje['convertidos_lead'],
+                    'vendas_confirmadas': insights_hoje['vendas_confirmadas'],
+                    'valor_total_vendas': f"R$ {insights_hoje['valor_total_vendas']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                    'taxa_finalizacao': f"{insights_hoje['taxa_finalizacao']:.1f}%",
+                    'taxa_conversao_venda': f"{insights_hoje['taxa_conversao_venda']:.1f}%",
+                    'taxa_conversao_geral': f"{insights_hoje['taxa_conversao_geral']:.1f}%",
+                    'abandonos': insights_hoje['abandonos']
+                },
+                
+                # Funil de vendas - SEMANA
+                'funil_semana': {
+                    'total_contatos': insights_semana['total_contatos'],
+                    'fluxos_inicializados': insights_semana['fluxos_inicializados'],
+                    'fluxos_finalizados': insights_semana['fluxos_finalizados'],
+                    'transferidos_humano': insights_semana['transferidos_humano'],
+                    'convertidos_lead': insights_semana['convertidos_lead'],
+                    'vendas_confirmadas': insights_semana['vendas_confirmadas'],
+                    'valor_total_vendas': f"R$ {insights_semana['valor_total_vendas']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                    'taxa_finalizacao': f"{insights_semana['taxa_finalizacao']:.1f}%",
+                    'taxa_conversao_venda': f"{insights_semana['taxa_conversao_venda']:.1f}%",
+                    'taxa_conversao_geral': f"{insights_semana['taxa_conversao_geral']:.1f}%",
+                    'abandonos': insights_semana['abandonos']
+                },
+                
+                # Funil de vendas - MÊS
+                'funil_mes': {
+                    'total_contatos': insights_mes['total_contatos'],
+                    'fluxos_inicializados': insights_mes['fluxos_inicializados'],
+                    'fluxos_finalizados': insights_mes['fluxos_finalizados'],
+                    'transferidos_humano': insights_mes['transferidos_humano'],
+                    'convertidos_lead': insights_mes['convertidos_lead'],
+                    'vendas_confirmadas': insights_mes['vendas_confirmadas'],
+                    'valor_total_vendas': f"R$ {insights_mes['valor_total_vendas']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                    'taxa_finalizacao': f"{insights_mes['taxa_finalizacao']:.1f}%",
+                    'taxa_conversao_venda': f"{insights_mes['taxa_conversao_venda']:.1f}%",
+                    'taxa_conversao_geral': f"{insights_mes['taxa_conversao_geral']:.1f}%",
+                    'abandonos': insights_mes['abandonos']
+                }
             }
         }
         
@@ -148,12 +193,74 @@ def dashboard_charts_data(request):
             })
         contatos_por_dia.reverse()
         
+        # FUNIL DE VENDAS - Últimos 7 dias
+        funil_7_dias = []
+        for i in range(7):
+            data_inicio = timezone.now().date() - timedelta(days=i)
+            data_fim = data_inicio + timedelta(days=1)
+            
+            insights_dia = HistoricoContato.get_funil_insights(
+                data_inicio=timezone.make_aware(datetime.combine(data_inicio, datetime.min.time())),
+                data_fim=timezone.make_aware(datetime.combine(data_fim, datetime.min.time()))
+            )
+            
+            funil_7_dias.append({
+                'date': data_inicio.strftime('%d/%m'),
+                'fluxos_inicializados': insights_dia['fluxos_inicializados'],
+                'fluxos_finalizados': insights_dia['fluxos_finalizados'],
+                'transferidos_humano': insights_dia['transferidos_humano'],
+                'convertidos_lead': insights_dia['convertidos_lead'],
+                'vendas_confirmadas': insights_dia['vendas_confirmadas'],
+                'abandonos': insights_dia['abandonos'],
+                'taxa_conversao_geral': round(insights_dia['taxa_conversao_geral'], 1)
+            })
+        funil_7_dias.reverse()
+        
+        # Gráfico de conversão por origem
+        conversao_por_origem = []
+        for origem_choice in LeadProspecto.ORIGEM_CHOICES:
+            origem_value, origem_label = origem_choice
+            
+            # Contatos desta origem
+            contatos_origem = HistoricoContato.objects.filter(origem_contato=origem_value)
+            total_contatos = contatos_origem.count()
+            
+            if total_contatos > 0:
+                vendas_confirmadas = contatos_origem.filter(converteu_venda=True).count()
+                taxa_conversao = (vendas_confirmadas / total_contatos) * 100
+                
+                conversao_por_origem.append({
+                    'origem': origem_label,
+                    'total_contatos': total_contatos,
+                    'vendas_confirmadas': vendas_confirmadas,
+                    'taxa_conversao': round(taxa_conversao, 1)
+                })
+        
+        # Status de contato agrupados por categoria
+        status_agrupados = {
+            'Inicializados': HistoricoContato.objects.filter(status='fluxo_inicializado').count(),
+            'Finalizados': HistoricoContato.objects.filter(status='fluxo_finalizado').count(),
+            'Transferidos': HistoricoContato.objects.filter(status='transferido_humano').count(),
+            'Convertidos': HistoricoContato.objects.filter(converteu_lead=True).count(),
+            'Vendas': HistoricoContato.objects.filter(converteu_venda=True).count(),
+            'Abandonos': HistoricoContato.objects.filter(
+                status__in=['abandonou_fluxo', 'desligou', 'nao_atendeu', 'chamada_perdida']
+            ).count()
+        }
+        
         data = {
             'statusProspectos': list(status_prospectos),
             'leadsUltimos7Dias': ultimos_7_dias,
             'statusContatos': list(status_contatos),
             'contatosPorHora': contatos_por_hora,
-            'contatosPorDia': contatos_por_dia
+            'contatosPorDia': contatos_por_dia,
+            
+            # Novos gráficos do funil
+            'funilVendas7Dias': funil_7_dias,
+            'conversaoPorOrigem': conversao_por_origem,
+            'statusAgrupados': [
+                {'status': k, 'count': v} for k, v in status_agrupados.items()
+            ]
         }
         
         return JsonResponse(data)
@@ -415,14 +522,23 @@ def dashboard_historico_data(request):
                 'nome_contato': contato.nome_contato or '-',
                 'lead_relacionado': contato.lead.nome_razaosocial if contato.lead else None,
                 'status': contato.get_status_display(),
+                'status_color': contato.get_status_display_color(),
                 'data_hora_contato': contato.data_hora_contato.strftime('%d/%m/%Y %H:%M'),
                 'duracao_formatada': contato.get_duracao_formatada(),
                 'sucesso': contato.sucesso,
+                'converteu_lead': contato.converteu_lead,
+                'converteu_venda': contato.converteu_venda,
+                'valor_venda': contato.get_valor_venda_formatado() if contato.valor_venda else None,
+                'data_conversao_lead': contato.data_conversao_lead.strftime('%d/%m/%Y %H:%M') if contato.data_conversao_lead else None,
+                'data_conversao_venda': contato.data_conversao_venda.strftime('%d/%m/%Y %H:%M') if contato.data_conversao_venda else None,
+                'origem_contato': contato.get_origem_contato_display() if contato.origem_contato else None,
                 'transcricao': contato.transcricao or '-',
                 'observacoes': contato.observacoes or '-',
                 'ip_origem': contato.ip_origem or '-',
                 'tempo_relativo': contato.get_tempo_relativo(),
-                'dados_extras': contato.dados_extras
+                'dados_extras': contato.dados_extras,
+                'bem_sucedido': contato.is_contato_bem_sucedido(),
+                'conversao_completa': contato.is_conversao_completa()
             })
         
         # Status choices para o filtro
@@ -481,36 +597,73 @@ def dashboard_contato_historico(request, telefone):
             telefone=telefone
         ).order_by('-data_hora_contato')
         
-        # Estatísticas do telefone
+        # Estatísticas básicas do telefone
         total_contatos = contatos.count()
         contatos_sucesso = contatos.filter(sucesso=True).count()
         contatos_finalizados = contatos.filter(status='fluxo_finalizado').count()
+        contatos_transferidos = contatos.filter(status='transferido_humano').count()
+        contatos_inicializados = contatos.filter(status='fluxo_inicializado').count()
+        contatos_convertidos_lead = contatos.filter(converteu_lead=True).count()
+        contatos_vendas = contatos.filter(converteu_venda=True).count()
         duracao_total = sum([c.duracao_segundos or 0 for c in contatos])
         
-        # Timeline dos contatos
+        # Calcular taxas
+        taxa_sucesso = (contatos_sucesso / total_contatos * 100) if total_contatos > 0 else 0
+        taxa_finalizacao = ((contatos_finalizados + contatos_transferidos) / total_contatos * 100) if total_contatos > 0 else 0
+        taxa_conversao_lead = (contatos_convertidos_lead / total_contatos * 100) if total_contatos > 0 else 0
+        taxa_conversao_venda = (contatos_vendas / contatos_convertidos_lead * 100) if contatos_convertidos_lead > 0 else 0
+        
+        # Último contato
+        ultimo_contato = contatos.first()
+        ultimo_contato_data = ultimo_contato.data_hora_contato.strftime('%d/%m/%Y %H:%M') if ultimo_contato else None
+        
+        # Valor total das vendas
+        valor_total_vendas = contatos.filter(converteu_venda=True).aggregate(
+            total=Sum('valor_venda')
+        )['total'] or 0
+        
+        # Timeline dos contatos com informações detalhadas
         timeline_data = []
         for contato in contatos:
             timeline_data.append({
                 'id': contato.id,
-                'data_hora': contato.data_hora_contato.strftime('%d/%m/%Y %H:%M:%S'),
+                'data_hora_contato': contato.data_hora_contato.strftime('%d/%m/%Y %H:%M:%S'),
                 'status': contato.get_status_display(),
-                'nome': contato.nome_contato or 'Não identificado',
-                'duracao': contato.get_duracao_formatada(),
+                'nome_contato': contato.nome_contato or 'Não identificado',
+                'duracao_formatada': contato.get_duracao_formatada(),
                 'sucesso': contato.sucesso,
+                'converteu_lead': contato.converteu_lead,
+                'converteu_venda': contato.converteu_venda,
+                'valor_venda': contato.get_valor_venda_formatado() if contato.valor_venda else None,
                 'observacoes': contato.observacoes or '',
-                'tempo_relativo': contato.get_tempo_relativo()
+                'transcricao': contato.transcricao or '',
+                'tempo_relativo': contato.get_tempo_relativo(),
+                'origem_contato': contato.get_origem_contato_display() if contato.origem_contato else None
             })
         
         data = {
             'telefone': telefone,
+            'total': total_contatos,
+            'ultimo_contato': ultimo_contato_data,
+            'taxa_sucesso': f"{taxa_sucesso:.1f}%",
             'estatisticas': {
                 'total_contatos': total_contatos,
                 'contatos_sucesso': contatos_sucesso,
                 'contatos_finalizados': contatos_finalizados,
-                'duracao_total_minutos': duracao_total // 60 if duracao_total else 0
+                'contatos_transferidos': contatos_transferidos,
+                'contatos_inicializados': contatos_inicializados,
+                'contatos_convertidos_lead': contatos_convertidos_lead,
+                'contatos_vendas': contatos_vendas,
+                'duracao_total_minutos': duracao_total // 60 if duracao_total else 0,
+                'taxa_sucesso': taxa_sucesso,
+                'taxa_finalizacao': taxa_finalizacao,
+                'taxa_conversao_lead': taxa_conversao_lead,
+                'taxa_conversao_venda': taxa_conversao_venda,
+                'valor_total_vendas': valor_total_vendas,
+                'valor_total_vendas_formatado': f"R$ {valor_total_vendas:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
             },
-            'timeline': timeline_data,
-            'historico_detalhado': timeline_data  # Mesmo dados para a tabela detalhada
+            'historico': timeline_data,
+            'timeline': timeline_data
         }
         
         return JsonResponse(data)

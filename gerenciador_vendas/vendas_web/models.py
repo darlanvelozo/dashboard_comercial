@@ -170,6 +170,70 @@ class LeadProspecto(models.Model):
         if self.valor:
             return f"R$ {self.valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
         return "R$ 0,00"
+    
+    def get_historico_contatos_relacionados(self):
+        """
+        Retorna o histórico de contatos relacionados a este lead/prospecto
+        Busca por telefone e também por relacionamento direto
+        """
+        contatos_diretos = self.historico_contatos.all()
+        contatos_por_telefone = HistoricoContato.objects.filter(
+            telefone=self.telefone
+        ).exclude(
+            id__in=contatos_diretos.values_list('id', flat=True)
+        )
+        
+        # Combina os dois querysets e ordena por data
+        from django.db.models import Q
+        todos_contatos = HistoricoContato.objects.filter(
+            Q(lead=self) | Q(telefone=self.telefone)
+        ).distinct().order_by('-data_hora_contato')
+        
+        return todos_contatos
+    
+    def get_primeiro_contato(self):
+        """Retorna o primeiro contato relacionado a este lead"""
+        contatos = self.get_historico_contatos_relacionados()
+        return contatos.last() if contatos.exists() else None
+    
+    def get_ultimo_contato(self):
+        """Retorna o último contato relacionado a este lead"""
+        contatos = self.get_historico_contatos_relacionados()
+        return contatos.first() if contatos.exists() else None
+    
+    def get_total_contatos(self):
+        """Retorna o número total de contatos relacionados"""
+        return self.get_historico_contatos_relacionados().count()
+    
+    def get_contatos_bem_sucedidos(self):
+        """Retorna contatos que tiveram sucesso (finalizaram fluxo ou foram transferidos)"""
+        return self.get_historico_contatos_relacionados().filter(
+            status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada']
+        )
+    
+    def get_taxa_sucesso_contatos(self):
+        """Calcula a taxa de sucesso dos contatos deste lead"""
+        total = self.get_total_contatos()
+        if total == 0:
+            return 0
+        sucessos = self.get_contatos_bem_sucedidos().count()
+        return (sucessos / total) * 100
+    
+    def marcar_como_convertido_de_contato(self, contato_id):
+        """
+        Marca um contato específico como convertido em lead
+        e atualiza o relacionamento
+        """
+        try:
+            contato = HistoricoContato.objects.get(id=contato_id)
+            contato.lead = self
+            contato.converteu_lead = True
+            contato.data_conversao_lead = timezone.now()
+            contato.status = 'convertido_lead'
+            contato.save()
+            return True
+        except HistoricoContato.DoesNotExist:
+            return False
 
 class Prospecto(models.Model):
     """
@@ -299,17 +363,28 @@ class Prospecto(models.Model):
 
 class HistoricoContato(models.Model):
     """
-    Modelo para histórico de contatos/chamadas
+    Modelo para histórico de contatos/chamadas no funil de vendas
+    Fluxo: Inicializado → Finalizado/Transferido → Lead/Prospecto → Venda
     """
     STATUS_CHOICES = [
+        # Status principais do fluxo
         ('fluxo_inicializado', 'Fluxo Inicializado'),
         ('fluxo_finalizado', 'Fluxo Finalizado'),
         ('transferido_humano', 'Transferido para Humano'),
+        
+        # Status de abandono/problemas
         ('chamada_perdida', 'Chamada Perdida'),
         ('ocupado', 'Ocupado'),
         ('desligou', 'Desligou'),
         ('nao_atendeu', 'Não Atendeu'),
+        ('abandonou_fluxo', 'Abandonou o Fluxo'),
+        ('numero_invalido', 'Número Inválido'),
         ('erro_sistema', 'Erro do Sistema'),
+        
+        # Status de conversão
+        ('convertido_lead', 'Convertido em Lead'),
+        ('venda_confirmada', 'Venda Confirmada'),
+        ('venda_rejeitada', 'Venda Rejeitada'),
     ]
     
     # Relacionamento opcional com lead
@@ -390,10 +465,64 @@ class HistoricoContato(models.Model):
         help_text="Dados JSON com informações extras do contato"
     )
     
+    # Campos para rastreamento do funil de vendas
     sucesso = models.BooleanField(
         default=False,
         verbose_name="Sucesso",
         help_text="Indica se o contato foi bem-sucedido"
+    )
+    
+    converteu_lead = models.BooleanField(
+        default=False,
+        verbose_name="Converteu em Lead",
+        help_text="Indica se este contato gerou um lead/prospecto"
+    )
+    
+    data_conversao_lead = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Conversão em Lead",
+        help_text="Data quando foi convertido em lead/prospecto"
+    )
+    
+    converteu_venda = models.BooleanField(
+        default=False,
+        verbose_name="Converteu em Venda",
+        help_text="Indica se este lead se tornou uma venda confirmada"
+    )
+    
+    data_conversao_venda = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Conversão em Venda",
+        help_text="Data quando foi confirmada a venda"
+    )
+    
+    valor_venda = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Valor da Venda",
+        help_text="Valor em reais da venda confirmada"
+    )
+    
+    origem_contato = models.CharField(
+        max_length=50,
+        choices=LeadProspecto.ORIGEM_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Origem do Contato",
+        help_text="Canal de origem do contato"
+    )
+    
+    # Campo para identificar contatos relacionados (mesmo cliente, múltiplos contatos)
+    identificador_cliente = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="Identificador do Cliente",
+        help_text="Hash ou ID único para agrupar contatos do mesmo cliente"
     )
     
     class Meta:
@@ -406,6 +535,16 @@ class HistoricoContato(models.Model):
             models.Index(fields=['data_hora_contato']),
             models.Index(fields=['status']),
             models.Index(fields=['sucesso']),
+            models.Index(fields=['converteu_lead']),
+            models.Index(fields=['converteu_venda']),
+            models.Index(fields=['data_conversao_lead']),
+            models.Index(fields=['data_conversao_venda']),
+            models.Index(fields=['origem_contato']),
+            models.Index(fields=['identificador_cliente']),
+            # Índices compostos para consultas de funil
+            models.Index(fields=['data_hora_contato', 'status']),
+            models.Index(fields=['converteu_lead', 'data_conversao_lead']),
+            models.Index(fields=['converteu_venda', 'data_conversao_venda']),
         ]
     
     def __str__(self):
@@ -426,6 +565,95 @@ class HistoricoContato(models.Model):
         """Retorna o tempo relativo do contato"""
         from django.utils.timesince import timesince
         return timesince(self.data_hora_contato)
+    
+    def get_valor_venda_formatado(self):
+        """Retorna o valor da venda formatado em reais"""
+        if self.valor_venda:
+            return f"R$ {self.valor_venda:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        return "R$ 0,00"
+    
+    def get_status_display_color(self):
+        """Retorna cor para exibição do status no dashboard"""
+        status_colors = {
+            'fluxo_inicializado': '#3498db',  # Azul
+            'fluxo_finalizado': '#2ecc71',    # Verde
+            'transferido_humano': '#f39c12',  # Laranja
+            'convertido_lead': '#9b59b6',     # Roxo
+            'venda_confirmada': '#27ae60',    # Verde escuro
+            'venda_rejeitada': '#e74c3c',     # Vermelho
+            'abandonou_fluxo': '#95a5a6',     # Cinza
+            'erro_sistema': '#e67e22',        # Laranja escuro
+        }
+        return status_colors.get(self.status, '#7f8c8d')  # Cinza padrão
+    
+    def is_contato_bem_sucedido(self):
+        """Verifica se o contato foi bem-sucedido (finalizou fluxo ou foi transferido)"""
+        return self.status in ['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada']
+    
+    def is_conversao_completa(self):
+        """Verifica se houve conversão completa (de contato até venda)"""
+        return self.converteu_venda and self.valor_venda and self.valor_venda > 0
+    
+    @classmethod
+    def get_funil_insights(cls, data_inicio=None, data_fim=None):
+        """
+        Retorna insights do funil de vendas para um período específico
+        """
+        from django.utils import timezone
+        from django.db.models import Count, Sum, Q
+        from datetime import datetime, timedelta
+        
+        # Se não especificado, usa últimos 30 dias
+        if not data_fim:
+            data_fim = timezone.now()
+        if not data_inicio:
+            data_inicio = data_fim - timedelta(days=30)
+        
+        queryset = cls.objects.filter(
+            data_hora_contato__gte=data_inicio,
+            data_hora_contato__lte=data_fim
+        )
+        
+        insights = {
+            'total_contatos': queryset.count(),
+            'fluxos_inicializados': queryset.filter(status='fluxo_inicializado').count(),
+            'fluxos_finalizados': queryset.filter(status='fluxo_finalizado').count(),
+            'transferidos_humano': queryset.filter(status='transferido_humano').count(),
+            'convertidos_lead': queryset.filter(converteu_lead=True).count(),
+            'vendas_confirmadas': queryset.filter(converteu_venda=True).count(),
+            'valor_total_vendas': queryset.filter(converteu_venda=True).aggregate(
+                total=Sum('valor_venda')
+            )['total'] or 0,
+            'abandonos': queryset.filter(status__in=[
+                'abandonou_fluxo', 'desligou', 'nao_atendeu', 'chamada_perdida'
+            ]).count(),
+        }
+        
+        # Cálculos de taxa de conversão
+        if insights['fluxos_inicializados'] > 0:
+            insights['taxa_finalizacao'] = (
+                (insights['fluxos_finalizados'] + insights['transferidos_humano']) / 
+                insights['fluxos_inicializados'] * 100
+            )
+        else:
+            insights['taxa_finalizacao'] = 0
+            
+        if insights['convertidos_lead'] > 0:
+            insights['taxa_conversao_venda'] = (
+                insights['vendas_confirmadas'] / insights['convertidos_lead'] * 100
+            )
+        else:
+            insights['taxa_conversao_venda'] = 0
+            
+        # Taxa de conversão geral (contato → venda)
+        if insights['total_contatos'] > 0:
+            insights['taxa_conversao_geral'] = (
+                insights['vendas_confirmadas'] / insights['total_contatos'] * 100
+            )
+        else:
+            insights['taxa_conversao_geral'] = 0
+        
+        return insights
 
 class ConfiguracaoSistema(models.Model):
     """

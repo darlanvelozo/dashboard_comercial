@@ -966,6 +966,124 @@
                 </div>
             </section>
 
+            <!-- Funil de Vendas - Métricas do Dia -->
+            <section class="stats-section fade-in-up">
+                <div class="section-header">
+                    <i class="fas fa-funnel-dollar"></i>
+                    <h2>Funil de Vendas - Hoje</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                            <i class="fas fa-play-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="fluxosInicializadosHoje">0</h3>
+                            <p>Fluxos Inicializados</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #2ecc71, #27ae60);">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="fluxosFinalizadosHoje">0</h3>
+                            <p>Fluxos Finalizados</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="transferidosHumanoHoje">0</h3>
+                            <p>Transferidos para Humano</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                            <i class="fas fa-target"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="convertidosLeadHoje">0</h3>
+                            <p>Convertidos em Lead</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="vendasConfirmadasHoje">0</h3>
+                            <p>Vendas Confirmadas</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="abandonosHoje">0</h3>
+                            <p>Abandonos</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Taxas de Conversão -->
+            <section class="stats-section fade-in-up">
+                <div class="section-header">
+                    <i class="fas fa-percentage"></i>
+                    <h2>Taxas de Conversão - Hoje</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="taxaFinalizacaoHoje">0%</h3>
+                            <p>Taxa de Finalização</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="taxaConversaoVendaHoje">0%</h3>
+                            <p>Taxa Conversão Venda</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                            <i class="fas fa-rocket"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="taxaConversaoGeralHoje">0%</h3>
+                            <p>Taxa Conversão Geral</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="valorVendasHoje">R$ 0,00</h3>
+                            <p>Valor Vendas Hoje</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Charts Section -->
             <section class="charts-section slide-in-right">
                 <div class="section-header">
@@ -990,6 +1108,65 @@
                         </div>
                         <div class="chart-container">
                             <canvas id="trendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Funil de Vendas Charts Section -->
+            <section class="charts-section slide-in-right">
+                <div class="section-header">
+                    <i class="fas fa-funnel-dollar"></i>
+                    <h2>Visualização do Funil de Vendas</h2>
+                </div>
+                <div class="charts-grid">
+                    <!-- Funil Visual -->
+                    <div class="chart-card" style="grid-column: span 2;">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-filter"></i> Funil de Conversão - Hoje</h3>
+                        </div>
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="funilChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Taxa de Conversão por Etapa -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-percentage"></i> Taxas de Conversão</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="taxasChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Comparativo Temporal -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-calendar-alt"></i> Tendência 7 Dias</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="tendenciaFunilChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Status Distribution -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-chart-doughnut"></i> Distribuição de Status</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="statusDistribuicaoChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Performance por Origem -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-chart-bar"></i> Performance por Origem</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="origemPerformanceChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -1271,6 +1448,11 @@
         // Variáveis globais
         let statusChart = null;
         let trendsChart = null;
+        let funilChart = null;
+        let taxasChart = null;
+        let tendenciaFunilChart = null;
+        let statusDistribuicaoChart = null;
+        let origemPerformanceChart = null;
         let currentTab = 'leads';
         let currentPage = {
             leads: 1,
@@ -1319,12 +1501,27 @@
                     throw new Error(data.error);
                 }
                 
-                // Atualizar estatísticas
+                // Atualizar estatísticas gerais
                 const stats = data.stats;
                 document.getElementById('totalLeads').textContent = stats.totalLeads;
                 document.getElementById('totalProspectos').textContent = stats.totalProspectos;
                 document.getElementById('leadsHoje').textContent = stats.leadsHoje;
                 document.getElementById('valorTotal').textContent = stats.valorTotal;
+                
+                // Atualizar métricas do funil - HOJE
+                const funilHoje = stats.funil_hoje;
+                document.getElementById('fluxosInicializadosHoje').textContent = funilHoje.fluxos_inicializados;
+                document.getElementById('fluxosFinalizadosHoje').textContent = funilHoje.fluxos_finalizados;
+                document.getElementById('transferidosHumanoHoje').textContent = funilHoje.transferidos_humano;
+                document.getElementById('convertidosLeadHoje').textContent = funilHoje.convertidos_lead;
+                document.getElementById('vendasConfirmadasHoje').textContent = funilHoje.vendas_confirmadas;
+                document.getElementById('abandonosHoje').textContent = funilHoje.abandonos;
+                
+                // Atualizar taxas de conversão - HOJE
+                document.getElementById('taxaFinalizacaoHoje').textContent = funilHoje.taxa_finalizacao;
+                document.getElementById('taxaConversaoVendaHoje').textContent = funilHoje.taxa_conversao_venda;
+                document.getElementById('taxaConversaoGeralHoje').textContent = funilHoje.taxa_conversao_geral;
+                document.getElementById('valorVendasHoje').textContent = funilHoje.valor_total_vendas;
                 
                 hideError();
             } catch (error) {
@@ -1349,6 +1546,11 @@
                 
                 // Atualizar gráfico de tendências
                 updateTrendsChart(data.leadsUltimos7Dias);
+                
+                // Atualizar gráficos do funil se houver dados
+                if (data.funilVendas7Dias || data.statusAgrupados) {
+                    updateFunilCharts(data);
+                }
                 
                 hideError();
             } catch (error) {
@@ -1456,6 +1658,310 @@
                     scales: {
                         y: {
                             beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Função para atualizar gráficos do funil de vendas
+        function updateFunilCharts(data) {
+            // Usar dados das métricas carregadas no dashboard_data
+            updateFunilVisualChart();
+            updateTaxasConversaoChart();
+            updateStatusDistribuicaoChart(data);
+            updateOrigemPerformanceChart(data);
+            updateTendenciaFunilChart();
+        }
+
+        // Gráfico visual do funil
+        function updateFunilVisualChart() {
+            const ctx = document.getElementById('funilChart').getContext('2d');
+            
+            if (funilChart) {
+                funilChart.destroy();
+            }
+
+            // Pegar dados dos cards do dashboard
+            const fluxosInicializados = parseInt(document.getElementById('fluxosInicializadosHoje').textContent) || 0;
+            const fluxosFinalizados = parseInt(document.getElementById('fluxosFinalizadosHoje').textContent) || 0;
+            const transferidosHumano = parseInt(document.getElementById('transferidosHumanoHoje').textContent) || 0;
+            const convertidosLead = parseInt(document.getElementById('convertidosLeadHoje').textContent) || 0;
+            const vendasConfirmadas = parseInt(document.getElementById('vendasConfirmadasHoje').textContent) || 0;
+            
+            const labels = ['Inicializados', 'Finalizados', 'Transferidos', 'Leads', 'Vendas'];
+            const values = [fluxosInicializados, fluxosFinalizados, transferidosHumano, convertidosLead, vendasConfirmadas];
+            
+            funilChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Quantidade',
+                        data: values,
+                        backgroundColor: [
+                            'rgba(52, 152, 219, 0.8)',   // Inicializados - Azul
+                            'rgba(46, 204, 113, 0.8)',   // Finalizados - Verde
+                            'rgba(243, 156, 18, 0.8)',   // Transferidos - Laranja
+                            'rgba(155, 89, 182, 0.8)',   // Leads - Roxo
+                            'rgba(39, 174, 96, 0.8)'     // Vendas - Verde escuro
+                        ],
+                        borderColor: [
+                            'rgba(52, 152, 219, 1)',
+                            'rgba(46, 204, 113, 1)',
+                            'rgba(243, 156, 18, 1)',
+                            'rgba(155, 89, 182, 1)',
+                            'rgba(39, 174, 96, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const percentage = ((context.parsed.y / fluxosInicializados) * 100).toFixed(1);
+                                    return `${context.label}: ${context.parsed.y} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Quantidade de Contatos'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Etapas do Funil'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de taxas de conversão
+        function updateTaxasConversaoChart() {
+            const ctx = document.getElementById('taxasChart').getContext('2d');
+            
+            if (taxasChart) {
+                taxasChart.destroy();
+            }
+
+            const taxaFinalizacao = parseFloat(document.getElementById('taxaFinalizacaoHoje').textContent.replace('%', '')) || 0;
+            const taxaConversaoVenda = parseFloat(document.getElementById('taxaConversaoVendaHoje').textContent.replace('%', '')) || 0;
+            const taxaConversaoGeral = parseFloat(document.getElementById('taxaConversaoGeralHoje').textContent.replace('%', '')) || 0;
+            
+            taxasChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Taxa Finalização', 'Taxa Conv. Venda', 'Taxa Conv. Geral'],
+                    datasets: [{
+                        data: [taxaFinalizacao, taxaConversaoVenda, taxaConversaoGeral],
+                        backgroundColor: [
+                            'rgba(52, 152, 219, 0.8)',
+                            'rgba(155, 89, 182, 0.8)',
+                            'rgba(39, 174, 96, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(52, 152, 219, 1)',
+                            'rgba(155, 89, 182, 1)',
+                            'rgba(39, 174, 96, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.parsed}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de distribuição de status
+        function updateStatusDistribuicaoChart(data) {
+            const ctx = document.getElementById('statusDistribuicaoChart').getContext('2d');
+            
+            if (statusDistribuicaoChart) {
+                statusDistribuicaoChart.destroy();
+            }
+
+            // Simular dados de status (você pode buscar da API depois)
+            const fluxosFinalizados = parseInt(document.getElementById('fluxosFinalizadosHoje').textContent) || 0;
+            const transferidosHumano = parseInt(document.getElementById('transferidosHumanoHoje').textContent) || 0;
+            const abandonos = parseInt(document.getElementById('abandonosHoje').textContent) || 0;
+            const vendasConfirmadas = parseInt(document.getElementById('vendasConfirmadasHoje').textContent) || 0;
+
+            statusDistribuicaoChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Finalizados', 'Transferidos', 'Abandonos', 'Vendas Confirmadas'],
+                    datasets: [{
+                        data: [fluxosFinalizados, transferidosHumano, abandonos, vendasConfirmadas],
+                        backgroundColor: [
+                            'rgba(46, 204, 113, 0.8)',
+                            'rgba(243, 156, 18, 0.8)',
+                            'rgba(231, 76, 60, 0.8)',
+                            'rgba(39, 174, 96, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(46, 204, 113, 1)',
+                            'rgba(243, 156, 18, 1)',
+                            'rgba(231, 76, 60, 1)',
+                            'rgba(39, 174, 96, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de performance por origem
+        function updateOrigemPerformanceChart(data) {
+            const ctx = document.getElementById('origemPerformanceChart').getContext('2d');
+            
+            if (origemPerformanceChart) {
+                origemPerformanceChart.destroy();
+            }
+
+            // Dados simulados para demonstração (você pode melhorar buscando da API)
+            const origens = ['Google Ads', 'Facebook', 'WhatsApp', 'Instagram', 'Direto'];
+            const contatos = [15, 12, 8, 5, 3];
+            const conversoes = [5, 4, 3, 2, 1];
+
+            origemPerformanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: origens,
+                    datasets: [{
+                        label: 'Contatos',
+                        data: contatos,
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Conversões',
+                        data: conversoes,
+                        backgroundColor: 'rgba(39, 174, 96, 0.6)',
+                        borderColor: 'rgba(39, 174, 96, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de tendência temporal do funil
+        function updateTendenciaFunilChart() {
+            const ctx = document.getElementById('tendenciaFunilChart').getContext('2d');
+            
+            if (tendenciaFunilChart) {
+                tendenciaFunilChart.destroy();
+            }
+
+            // Dados simulados dos últimos 7 dias
+            const labels = [];
+            const contatosData = [];
+            const conversaoData = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                labels.push(date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' }));
+                
+                // Simular dados variáveis
+                contatosData.push(Math.floor(Math.random() * 20) + 5);
+                conversaoData.push(Math.floor(Math.random() * 8) + 1);
+            }
+
+            tendenciaFunilChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Contatos Inicializados',
+                        data: contatosData,
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Vendas Confirmadas',
+                        data: conversaoData,
+                        borderColor: 'rgba(39, 174, 96, 1)',
+                        backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Quantidade'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Últimos 7 Dias'
+                            }
                         }
                     }
                 }
@@ -2000,10 +2506,10 @@
                 // Criar conteúdo do histórico
                 let historyContent = `
                     <div class="detail-card">
-                        <h4>Histórico de Contatos - ${telefone}</h4>
+                        <h4>📞 Histórico de Contatos - ${telefone}</h4>
                         <div class="detail-row">
                             <span class="detail-label">Total de Contatos:</span>
-                            <span class="detail-value">${data.total}</span>
+                            <span class="detail-value"><strong>${data.total}</strong></span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Último Contato:</span>
@@ -2011,50 +2517,127 @@
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Taxa de Sucesso:</span>
-                            <span class="detail-value">${data.taxa_sucesso || '0%'}</span>
+                            <span class="detail-value"><strong>${data.taxa_sucesso || '0%'}</strong></span>
                         </div>
                     </div>
-                    <h4>Timeline de Contatos</h4>
+                    
+                    <div class="detail-card">
+                        <h4>📊 Estatísticas do Funil</h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Fluxos Inicializados:</span>
+                            <span class="detail-value">${data.estatisticas.contatos_inicializados}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Fluxos Finalizados:</span>
+                            <span class="detail-value">${data.estatisticas.contatos_finalizados}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Transferidos para Humano:</span>
+                            <span class="detail-value">${data.estatisticas.contatos_transferidos}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Taxa de Finalização:</span>
+                            <span class="detail-value"><strong>${data.estatisticas.taxa_finalizacao.toFixed(1)}%</strong></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Convertidos em Lead:</span>
+                            <span class="detail-value">${data.estatisticas.contatos_convertidos_lead}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Vendas Confirmadas:</span>
+                            <span class="detail-value">${data.estatisticas.contatos_vendas}</span>
+                        </div>
+                        ${data.estatisticas.contatos_vendas > 0 ? `
+                        <div class="detail-row">
+                            <span class="detail-label">Valor Total Vendas:</span>
+                            <span class="detail-value" style="color: #27ae60; font-weight: bold;">${data.estatisticas.valor_total_vendas_formatado}</span>
+                        </div>
+                        ` : ''}
+                        <div class="detail-row">
+                            <span class="detail-label">Taxa Conversão Lead:</span>
+                            <span class="detail-value">${data.estatisticas.taxa_conversao_lead.toFixed(1)}%</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Taxa Conversão Venda:</span>
+                            <span class="detail-value">${data.estatisticas.taxa_conversao_venda.toFixed(1)}%</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Duração Total:</span>
+                            <span class="detail-value">${data.estatisticas.duracao_total_minutos} minutos</span>
+                        </div>
+                    </div>
+                    
+                    <h4>📋 Timeline de Contatos</h4>
                 `;
 
                 if (data.historico && data.historico.length > 0) {
                     data.historico.forEach(contato => {
                         historyContent += `
-                            <div class="detail-card">
+                            <div class="detail-card" style="border-left: 4px solid ${contato.sucesso ? '#27ae60' : '#e74c3c'};">
                                 <div class="detail-row">
-                                    <span class="detail-label">Data/Hora:</span>
-                                    <span class="detail-value">${contato.data_hora_contato}</span>
+                                    <span class="detail-label">📅 Data/Hora:</span>
+                                    <span class="detail-value"><strong>${contato.data_hora_contato}</strong></span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Status:</span>
+                                    <span class="detail-label">📊 Status:</span>
                                     <span class="detail-value">
                                         <span class="status-badge status-${contato.status.toLowerCase().replace(' ', '_')}">${contato.status}</span>
                                     </span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Duração:</span>
+                                    <span class="detail-label">👤 Nome:</span>
+                                    <span class="detail-value">${contato.nome_contato}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">⏱️ Duração:</span>
                                     <span class="detail-value">${contato.duracao_formatada}</span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Sucesso:</span>
+                                    <span class="detail-label">✅ Sucesso:</span>
                                     <span class="detail-value">
                                         <span class="status-badge ${contato.sucesso ? 'status-ativo' : 'status-inativo'}">
                                             ${contato.sucesso ? 'Sim' : 'Não'}
                                         </span>
                                     </span>
                                 </div>
-                                ${contato.transcricao && contato.transcricao !== '-' ? `
+                                ${contato.converteu_lead ? `
                                 <div class="detail-row">
-                                    <span class="detail-label">Transcrição:</span>
+                                    <span class="detail-label">🎯 Converteu Lead:</span>
+                                    <span class="detail-value">
+                                        <span class="status-badge status-ativo">Sim</span>
+                                    </span>
+                                </div>
+                                ` : ''}
+                                ${contato.converteu_venda ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">💰 Venda Confirmada:</span>
+                                    <span class="detail-value">
+                                        <span class="status-badge status-ativo">Sim - ${contato.valor_venda}</span>
+                                    </span>
+                                </div>
+                                ` : ''}
+                                ${contato.origem_contato ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">📍 Origem:</span>
+                                    <span class="detail-value">${contato.origem_contato}</span>
+                                </div>
+                                ` : ''}
+                                ${contato.transcricao && contato.transcricao !== '-' && contato.transcricao !== '' ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">📝 Transcrição:</span>
                                     <span class="detail-value">${contato.transcricao}</span>
                                 </div>
                                 ` : ''}
-                                ${contato.observacoes && contato.observacoes !== '-' ? `
+                                ${contato.observacoes && contato.observacoes !== '-' && contato.observacoes !== '' ? `
                                 <div class="detail-row">
-                                    <span class="detail-label">Observações:</span>
+                                    <span class="detail-label">💬 Observações:</span>
                                     <span class="detail-value">${contato.observacoes}</span>
                                 </div>
                                 ` : ''}
+                                <div class="detail-row">
+                                    <span class="detail-label">🕐 Tempo Relativo:</span>
+                                    <span class="detail-value">${contato.tempo_relativo} atrás</span>
+                                </div>
                             </div>
                         `;
                     });
@@ -2090,6 +2673,11 @@
                     loadTablesData()
                 ]);
                 
+                // Atualizar gráficos do funil
+                setTimeout(() => {
+                    updateFunilCharts({});
+                }, 300);
+                
                 // Recarregar aba atual
                 if (currentTab === 'leads') {
                     await loadLeadsData(currentPage.leads);
@@ -2118,6 +2706,11 @@
                     loadTablesData(),
                     loadLeadsData() // Carregar leads por padrão
                 ]);
+                
+                // Inicializar gráficos do funil após carregar os dados principais
+                setTimeout(() => {
+                    updateFunilCharts({});
+                }, 500);
                 
                 // Ocultar loading e mostrar conteúdo
                 document.getElementById('loading').style.display = 'none';
