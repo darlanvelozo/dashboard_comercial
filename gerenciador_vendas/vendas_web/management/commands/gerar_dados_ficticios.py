@@ -120,13 +120,29 @@ class Command(BaseCommand):
             else:
                 valor = Decimal(random.uniform(100, 3000)).quantize(Decimal('0.01')) if random.random() < 0.3 else Decimal('0.00')
             
+            # Escolher tipo de entrada baseado na origem
+            origem_escolhida = random.choice(origens)
+            tipo_entrada_map = {
+                'site': 'cadastro_site',
+                'whatsapp': 'contato_whatsapp',
+                'telefone': 'telefone',
+                'facebook': 'formulario',
+                'instagram': 'formulario',
+                'google': 'formulario',
+                'email': 'formulario',
+                'indicacao': 'telefone',
+                'outros': 'telefone'
+            }
+            
+            tipo_entrada = tipo_entrada_map.get(origem_escolhida, 'cadastro_site')
+            
             lead = LeadProspecto.objects.create(
                 nome_razaosocial=fake.name(),
                 email=fake.email(),
                 telefone=telefone,
                 valor=valor,
                 empresa=random.choice(empresas),
-                origem=random.choice(origens),
+                origem=origem_escolhida,
                 data_cadastro=data_cadastro,
                 status_api=status_api_lead,
                 cpf_cnpj=fake.cpf() if random.random() < 0.6 else None,
@@ -135,8 +151,18 @@ class Command(BaseCommand):
                 estado=fake.state_abbr() if random.random() < 0.5 else None,
                 cep=fake.postcode() if random.random() < 0.4 else None,
                 observacoes=fake.text(max_nb_chars=200) if random.random() < 0.2 else None,
-                ativo=random.choice([True, True, True, True, False])  # 80% ativos
+                ativo=random.choice([True, True, True, True, False]),  # 80% ativos
+                # Novos campos
+                canal_entrada=origem_escolhida,
+                tipo_entrada=tipo_entrada,
+                tentativas_contato=random.randint(0, 3),
+                custo_aquisicao=Decimal(random.uniform(50, 300)).quantize(Decimal('0.01')) if random.random() < 0.6 else None,
+                data_ultimo_contato=data_cadastro if random.random() < 0.5 else None
             )
+            
+            # Calcular score de qualificação automaticamente
+            lead.score_qualificacao = lead.calcular_score_qualificacao()
+            lead.save()
             leads.append(lead)
             
         self.stdout.write(f'✓ {len(leads)} leads criados com telefones estratégicos')
@@ -167,7 +193,20 @@ class Command(BaseCommand):
             
             status = random.choice(status_choices)
             
-            Prospecto.objects.create(
+            # Datas de início e fim de processamento
+            data_inicio_processamento = None
+            data_fim_processamento = None
+            
+            if data_processamento:
+                data_inicio_processamento = data_processamento
+                # Fim pode ser alguns minutos/horas após o início
+                data_fim_processamento = fake.date_time_between(
+                    start_date=data_inicio_processamento,
+                    end_date=data_inicio_processamento + timezone.timedelta(hours=random.randint(1, 24)),
+                    tzinfo=timezone.get_current_timezone()
+                )
+            
+            prospecto = Prospecto.objects.create(
                 lead=lead,
                 nome_prospecto=fake.name(),
                 id_prospecto_hubsoft=f'HUB{fake.random_int(min=1000, max=9999)}' if random.choice([True, False]) else None,
@@ -179,8 +218,15 @@ class Command(BaseCommand):
                 erro_processamento=fake.text(max_nb_chars=100) if status == 'erro' else None,
                 prioridade=random.randint(1, 5),
                 dados_processamento={'origem': 'dashboard', 'versao': '1.0'} if random.choice([True, False]) else None,
-                resultado_processamento={'sucesso': True, 'codigo': 200} if status == 'processado' else None
+                resultado_processamento={'sucesso': True, 'codigo': 200} if status == 'processado' else None,
+                # Novos campos
+                data_inicio_processamento=data_inicio_processamento,
+                data_fim_processamento=data_fim_processamento,
+                usuario_processamento=random.choice(['admin', 'sistema', 'operador', None])
             )
+            
+            # Calcular score de conversão automaticamente
+            prospecto.atualizar_score_conversao()
             
         self.stdout.write(f'✓ {quantidade} prospectos criados')
 

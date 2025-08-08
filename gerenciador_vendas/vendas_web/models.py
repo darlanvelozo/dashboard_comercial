@@ -1,5 +1,5 @@
 from django.db import models
-from django.core.validators import RegexValidator, EmailValidator
+from django.core.validators import RegexValidator, EmailValidator, MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from decimal import Decimal
 
@@ -14,6 +14,8 @@ class LeadProspecto(models.Model):
         ('erro', 'Erro'),
         ('sucesso', 'Sucesso'),
         ('rejeitado', 'Rejeitado'),
+        ('aguardando_retry', 'Aguardando Retry'),
+        ('processamento_manual', 'Processamento Manual'),
     ]
     
     ORIGEM_CHOICES = [
@@ -28,6 +30,15 @@ class LeadProspecto(models.Model):
         ('outros', 'Outros'),
     ]
     
+    TIPO_ENTRADA_CHOICES = [
+        ('contato_whatsapp', 'Contato WhatsApp'),
+        ('cadastro_site', 'Cadastro Site'),
+        ('telefone', 'Telefone'),
+        ('formulario', 'Formulário'),
+        ('importacao', 'Importação'),
+        ('api_externa', 'API Externa'),
+    ]
+    
     # Campos principais
     nome_razaosocial = models.CharField(
         max_length=255,
@@ -39,7 +50,9 @@ class LeadProspecto(models.Model):
         max_length=255,
         validators=[EmailValidator()],
         verbose_name="Email",
-        help_text="Email válido do cliente"
+        help_text="Email válido do cliente",
+        null=True,
+        blank=True
     )
     
     telefone_validator = RegexValidator(
@@ -143,6 +156,61 @@ class LeadProspecto(models.Model):
         verbose_name="Data de Atualização"
     )
     
+    # Novos campos para rastreamento melhorado
+    canal_entrada = models.CharField(
+        max_length=50,
+        choices=ORIGEM_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Canal de Entrada",
+        help_text="Canal por onde o lead entrou no sistema"
+    )
+    
+    tipo_entrada = models.CharField(
+        max_length=50,
+        choices=TIPO_ENTRADA_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Tipo de Entrada",
+        help_text="Tipo específico de entrada no sistema"
+    )
+    
+    score_qualificacao = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        verbose_name="Score de Qualificação",
+        help_text="Score de 1 a 10 baseado na qualificação do lead"
+    )
+    
+    tentativas_contato = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Tentativas de Contato",
+        help_text="Número de tentativas de contato realizadas"
+    )
+    
+    data_ultimo_contato = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data do Último Contato"
+    )
+    
+    motivo_rejeicao = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Motivo da Rejeição",
+        help_text="Motivo detalhado caso tenha sido rejeitado"
+    )
+    
+    custo_aquisicao = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Custo de Aquisição",
+        help_text="Custo investido para adquirir este lead"
+    )
+    
     ativo = models.BooleanField(
         default=True,
         verbose_name="Ativo",
@@ -160,6 +228,17 @@ class LeadProspecto(models.Model):
             models.Index(fields=['data_cadastro']),
             models.Index(fields=['status_api']),
             models.Index(fields=['origem']),
+            # Novos índices para campos adicionados
+            models.Index(fields=['canal_entrada']),
+            models.Index(fields=['tipo_entrada']),
+            models.Index(fields=['score_qualificacao']),
+            models.Index(fields=['data_ultimo_contato']),
+            models.Index(fields=['tentativas_contato']),
+            # Índices compostos para consultas mais eficientes
+            models.Index(fields=['canal_entrada', 'data_cadastro']),
+            models.Index(fields=['score_qualificacao', 'status_api']),
+            models.Index(fields=['tipo_entrada', 'ativo']),
+            models.Index(fields=['data_ultimo_contato', 'tentativas_contato']),
         ]
     
     def __str__(self):
@@ -234,6 +313,95 @@ class LeadProspecto(models.Model):
             return True
         except HistoricoContato.DoesNotExist:
             return False
+    
+    # Novos métodos de business logic
+    def calcular_score_qualificacao(self):
+        """
+        Calcula score de qualificação baseado em dados do lead
+        Retorna valor entre 1 e 10
+        """
+        score = 5  # Score base
+        
+        # Fatores que aumentam o score
+        if self.empresa:
+            score += 1
+        if self.valor and self.valor > 1000:
+            score += 1
+        if self.origem in ['indicacao', 'telefone']:
+            score += 1
+        if self.get_total_contatos() > 0:
+            score += 1
+        if self.get_taxa_sucesso_contatos() > 50:
+            score += 1
+            
+        # Fatores que diminuem o score
+        if self.tentativas_contato > 3:
+            score -= 1
+        if self.status_api == 'erro':
+            score -= 1
+        if self.motivo_rejeicao:
+            score -= 2
+            
+        # Garantir que o score esteja entre 1 e 10
+        return max(1, min(10, score))
+    
+    def pode_reprocessar(self):
+        """
+        Verifica se o lead pode ser reprocessado
+        """
+        if not self.ativo:
+            return False
+        if self.status_api == 'sucesso':
+            return False
+        if self.tentativas_contato >= 5:
+            return False
+        return True
+    
+    def incrementar_tentativa_contato(self, observacoes=None):
+        """
+        Incrementa contador de tentativas e atualiza data do último contato
+        """
+        self.tentativas_contato += 1
+        self.data_ultimo_contato = timezone.now()
+        if observacoes and not self.observacoes:
+            self.observacoes = observacoes
+        elif observacoes:
+            self.observacoes += f"\n{timezone.now().strftime('%d/%m/%Y %H:%M')}: {observacoes}"
+        
+        # Atualizar score após tentativa
+        self.score_qualificacao = self.calcular_score_qualificacao()
+        self.save()
+    
+    def definir_canal_entrada_automatico(self):
+        """
+        Define canal_entrada baseado na origem se não estiver definido
+        """
+        if not self.canal_entrada:
+            self.canal_entrada = self.origem
+            self.save()
+    
+    def get_custo_aquisicao_formatado(self):
+        """Retorna o custo de aquisição formatado em reais"""
+        if self.custo_aquisicao:
+            return f"R$ {self.custo_aquisicao:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        return "R$ 0,00"
+    
+    def get_score_qualificacao_display(self):
+        """Retorna descrição textual do score de qualificação"""
+        if not self.score_qualificacao:
+            return "Não avaliado"
+        
+        score_descriptions = {
+            (1, 3): "Baixa Qualificação",
+            (4, 6): "Qualificação Média",
+            (7, 8): "Boa Qualificação",
+            (9, 10): "Excelente Qualificação"
+        }
+        
+        for range_tuple, description in score_descriptions.items():
+            if range_tuple[0] <= self.score_qualificacao <= range_tuple[1]:
+                return description
+        return "Qualificação não definida"
 
 class Prospecto(models.Model):
     """
@@ -246,6 +414,10 @@ class Prospecto(models.Model):
         ('erro', 'Erro'),
         ('finalizado', 'Finalizado'),
         ('cancelado', 'Cancelado'),
+        # Novos status para validação
+        ('aguardando_validacao', 'Aguardando Validação'),
+        ('validacao_aprovada', 'Validação Aprovada'),
+        ('validacao_rejeitada', 'Validação Rejeitada'),
     ]
     
     # Referência ao lead original (opcional)
@@ -314,6 +486,36 @@ class Prospecto(models.Model):
         help_text="Detalhes do erro durante o processamento"
     )
     
+    # Novos campos para controle melhorado
+    data_inicio_processamento = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data Início Processamento"
+    )
+    
+    data_fim_processamento = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data Fim Processamento"
+    )
+    
+    usuario_processamento = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="Usuário que Processou"
+    )
+    
+    score_conversao = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Score de Conversão",
+        help_text="Probabilidade de conversão calculada (0-100%)"
+    )
+    
     # Campos adicionais
     prioridade = models.PositiveIntegerField(
         default=1,
@@ -345,6 +547,15 @@ class Prospecto(models.Model):
             models.Index(fields=['data_criacao']),
             models.Index(fields=['id_prospecto_hubsoft']),
             models.Index(fields=['tentativas_processamento']),
+            # Novos índices para campos adicionados
+            models.Index(fields=['data_inicio_processamento']),
+            models.Index(fields=['data_fim_processamento']),
+            models.Index(fields=['usuario_processamento']),
+            models.Index(fields=['score_conversao']),
+            # Índices compostos para consultas mais eficientes
+            models.Index(fields=['status', 'data_inicio_processamento']),
+            models.Index(fields=['prioridade', 'data_criacao']),
+            models.Index(fields=['score_conversao', 'status']),
         ]
     
     def __str__(self):
@@ -360,6 +571,116 @@ class Prospecto(models.Model):
                 segundos = self.tempo_processamento % 60
                 return f"{minutos}m {segundos:.1f}s"
         return "N/A"
+    
+    # Novos métodos de business logic
+    def iniciar_processamento(self, usuario=None):
+        """
+        Marca início do processamento
+        """
+        self.status = 'processando'
+        self.data_inicio_processamento = timezone.now()
+        if usuario:
+            self.usuario_processamento = usuario
+        self.save()
+    
+    def finalizar_processamento(self, sucesso=True, erro=None, resultado=None):
+        """
+        Marca fim do processamento
+        """
+        self.data_fim_processamento = timezone.now()
+        
+        if sucesso:
+            self.status = 'processado'
+        else:
+            self.status = 'erro'
+            if erro:
+                self.erro_processamento = erro
+        
+        if resultado:
+            self.resultado_processamento = resultado
+            
+        # Calcular tempo de processamento
+        if self.data_inicio_processamento:
+            tempo_delta = self.data_fim_processamento - self.data_inicio_processamento
+            self.tempo_processamento = tempo_delta.total_seconds()
+            
+        self.save()
+    
+    def calcular_tempo_processamento_total(self):
+        """
+        Calcula tempo total de processamento incluindo todas as tentativas
+        """
+        if self.data_inicio_processamento and self.data_fim_processamento:
+            tempo_delta = self.data_fim_processamento - self.data_inicio_processamento
+            return tempo_delta.total_seconds()
+        return 0
+    
+    def pode_reprocessar(self):
+        """
+        Verifica se o prospecto pode ser reprocessado
+        """
+        return self.status in ['erro', 'pendente'] and self.tentativas_processamento < 3
+    
+    def incrementar_tentativa(self):
+        """
+        Incrementa tentativas de processamento
+        """
+        self.tentativas_processamento += 1
+        self.save()
+    
+    def calcular_score_conversao_automatico(self):
+        """
+        Calcula score de conversão baseado nos dados disponíveis
+        """
+        if not self.lead:
+            return 50.0  # Score padrão sem lead
+            
+        score = 50.0  # Base
+        
+        # Fatores do lead que influenciam conversão
+        if self.lead.score_qualificacao:
+            score += (self.lead.score_qualificacao - 5) * 5  # +/- 25 pontos baseado no score
+            
+        if self.lead.empresa:
+            score += 10
+            
+        if self.lead.get_total_contatos() > 0:
+            score += 15
+            
+        if self.lead.get_taxa_sucesso_contatos() > 70:
+            score += 10
+            
+        # Fatores que diminuem
+        if self.tentativas_processamento > 1:
+            score -= self.tentativas_processamento * 5
+            
+        if self.status == 'erro':
+            score -= 20
+            
+        return max(0, min(100, score))
+    
+    def atualizar_score_conversao(self):
+        """
+        Atualiza o score de conversão automaticamente
+        """
+        self.score_conversao = self.calcular_score_conversao_automatico()
+        self.save()
+    
+    def get_score_conversao_display(self):
+        """Retorna descrição textual do score de conversão"""
+        if not self.score_conversao:
+            return "Não calculado"
+        
+        if self.score_conversao >= 80:
+            return f"{self.score_conversao:.1f}% - Muito Alta"
+        elif self.score_conversao >= 60:
+            return f"{self.score_conversao:.1f}% - Alta"
+        elif self.score_conversao >= 40:
+            return f"{self.score_conversao:.1f}% - Média"
+        elif self.score_conversao >= 20:
+            return f"{self.score_conversao:.1f}% - Baixa"
+        else:
+            return f"{self.score_conversao:.1f}% - Muito Baixa"
 
 class HistoricoContato(models.Model):
     """
@@ -385,6 +706,13 @@ class HistoricoContato(models.Model):
         ('convertido_lead', 'Convertido em Lead'),
         ('venda_confirmada', 'Venda Confirmada'),
         ('venda_rejeitada', 'Venda Rejeitada'),
+        
+        # Novos status expandidos
+        ('venda_sem_viabilidade', 'Venda Sem Viabilidade'),
+        ('cliente_desistiu', 'Cliente Desistiu'),
+        ('aguardando_validacao', 'Aguardando Validação'),
+        ('followup_agendado', 'Follow-up Agendado'),
+        ('nao_qualificado', 'Não Qualificado'),
     ]
     
     # Relacionamento opcional com lead
