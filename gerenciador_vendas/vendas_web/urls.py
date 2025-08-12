@@ -8,6 +8,7 @@ urlpatterns = [
     # Dashboard principal
     path('', views.dashboard_view, name='dashboard'),
     path('dashboard/', views.dashboard_view, name='dashboard_view'),
+    path('dashboard1/', views.dashboard1, name='dashboard1'),  # Nova rota para o template
     
     # APIs para dados do dashboard
     path('api/dashboard/data/', views.dashboard_data, name='dashboard_data'),
@@ -18,7 +19,20 @@ urlpatterns = [
     path('api/dashboard/historico/', views.dashboard_historico_data, name='dashboard_historico'),
     path('api/dashboard/contatos/realtime/', views.dashboard_contatos_realtime, name='dashboard_contatos_realtime'),
     path('api/dashboard/contato/<str:telefone>/historico/', views.dashboard_contato_historico, name='dashboard_contato_historico'),
+    path('api/dashboard/ultimas-conversoes/', views.dashboard_ultimas_conversoes, name='dashboard_ultimas_conversoes'),  # Nova rota
+    
+    # APIs para validação de vendas
+    path('api/vendas/aprovar/', views.aprovar_venda_api, name='aprovar_venda'),
+    path('api/vendas/rejeitar/', views.rejeitar_venda_api, name='rejeitar_venda'),
+    
+    # API para histórico de contatos
+    path('api/historico-contatos/', views.historico_contatos_api, name='historico_contatos'),
     
     # API para insights do funil de vendas
     path('api/dashboard/funil/insights/', dashboard_funil_insights, name='dashboard_funil_insights'),
+    
+    # Rotas adicionais para navegação
+    path('leads/', views.leads_view, name='leads'),
+    path('vendas/', views.vendas_view, name='vendas'),
+    path('relatorio/leads/', views.relatorio_leads_view, name='relatorio_leads')
 ]

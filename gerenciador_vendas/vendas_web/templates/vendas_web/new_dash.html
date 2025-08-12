@@ -1,0 +1,1769 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Métricas de Vendas</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .dashboard-container {
+            min-height: 100vh;
+            background: #f8f9fa;
+            position: relative;
+        }
+
+        /* Header Styles */
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: visible;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .hamburger-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .hamburger-menu:hover {
+            background-color: #f5f5f5;
+        }
+
+        .hamburger-line {
+            width: 20px;
+            height: 2px;
+            background-color: #333;
+            border-radius: 1px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            background: #333;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .logo-text {
+            color: #333;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-left: 2rem;
+            overflow: visible;
+        }
+
+        .nav-item {
+            position: relative;
+            padding: 0 1.5rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            color: #666;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+
+
+
+        .nav-item:hover {
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .nav-item.active {
+            color: #1F3D59;
+            border-bottom-color: #1F3D59;
+        }
+
+        .nav-item i {
+            margin-left: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* Dropdown Menu */
+        .nav-item.has-dropdown {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 220px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            margin-top: -1px;
+            width: auto;
+        }
+
+        .dropdown-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #333;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item.active {
+            color: #1F3D59;
+            background-color: #eef3f7;
+        }
+
+
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .header-icon:hover {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .user-section:hover {
+            background-color: #f5f5f5;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .user-name {
+            color: #333;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .user-company {
+            color: #666;
+            font-size: 0.75rem;
+        }
+
+        /* Chip-style icons next to user info */
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 0.5rem;
+        }
+
+        .chip-icon {
+            border: none;
+            background: #e8f8f5;
+            color: #2c3e50;
+            border-radius: 16px;
+            padding: 6px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .chip-icon i {
+            color: #2c3e50;
+        }
+
+        .chip-icon:hover {
+            background: #d1f2eb;
+        }
+
+        .chip-icon:active {
+            transform: scale(0.98);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #1F3D59, #2a4f73);
+            color: white;
+            box-shadow: 0 4px 15px rgba(31, 61, 89, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(31, 61, 89, 0.4);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(245, 87, 108, 0.4);
+        }
+
+        /* Loading Styles */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        .loading p {
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Dashboard Controls */
+        .dashboard-controls {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem 0;
+        }
+
+        .controls-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .period-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .period-label {
+            color: #666;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .period-selector {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .period-selector:hover {
+            border-color: #1F3D59;
+        }
+
+        .period-text {
+            color: #333;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .period-icon {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        .last-update {
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .controls-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-icon:hover {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+            background: #f8f9fa;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+
+        .section-header i {
+            font-size: 1.5rem;
+            color: #00d4aa;
+        }
+
+        .section-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            margin-bottom: 3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            margin-bottom: 2rem;
+            position: relative;
+            padding: 0 1rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: visible;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card.highlighted {
+            background: linear-gradient(135deg, #1F3D59, #2a4f73);
+            color: white;
+            border-color: #1F3D59;
+        }
+
+        .stat-card.highlighted .stat-title,
+        .stat-card.highlighted .stat-value,
+        .stat-card.highlighted .stat-change {
+            color: white;
+        }
+
+        .stat-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .stat-change {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .stat-change.positive {
+            color: #1F3D59;
+        }
+
+        .stat-change.negative {
+            color: #e74c3c;
+        }
+
+        .stat-change.neutral {
+            color: #666;
+        }
+
+        .change-arrow {
+            font-size: 0.7rem;
+        }
+
+        /* Conversion arrows between cards - RD Station Style */
+        .conversion-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4rem;
+            height: 2rem;
+            background: #333;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            z-index: 10;
+            flex-shrink: 0;
+            clip-path: polygon(0 50%, 15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%);
+        }
+
+        .conversion-arrow:nth-child(5) {
+            left: calc(25% - 2rem);
+        }
+
+        .conversion-arrow:nth-child(6) {
+            left: calc(50% - 2rem);
+        }
+
+        .conversion-arrow:nth-child(7) {
+            left: calc(75% - 2rem);
+        }
+
+        /* Charts Section */
+        .charts-section {
+            margin-bottom: 3rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-header {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .chart-header h3 {
+            color: #333;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-header i {
+            color: #667eea;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* (Limpado) Estilos de tabelas removidos */
+
+        /* Latest Conversions Section */
+        .latest-conversions-section {
+            margin-bottom: 2rem;
+        }
+
+        .conversions-container {
+            margin-top: 1.5rem;
+        }
+
+        .conversions-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .conversion-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .conversion-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .conversion-name {
+            color: #00d4aa;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .conversion-separator {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 0.75rem 0;
+        }
+
+        .conversion-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .conversion-field {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .field-label {
+            color: #666;
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+
+        .field-value {
+            color: #333;
+            font-weight: 400;
+            text-align: right;
+        }
+
+        .conversions-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .conversions-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .conversions-navigation {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .view-all-link {
+            color: #1F3D59;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: color 0.3s ease;
+        }
+
+        .view-all-link:hover {
+            color: #1F3D59;
+        }
+
+        .navigation-arrows {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-arrow {
+            background: none;
+            border: none;
+            color: #1F3D59;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-arrow:hover {
+            background: #eef3f7;
+            color: #1F3D59;
+        }
+
+        .nav-arrow:disabled {
+            color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .nav-arrow:disabled:hover {
+            background: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .stat-card {
+                width: 100%;
+            }
+
+            .conversion-arrow {
+                position: relative;
+                top: 0;
+                left: 0 !important;
+                transform: rotate(90deg) translateY(-50%);
+                margin: 0.5rem auto;
+                clip-path: polygon(0 50%, 15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%);
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tables-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .conversions-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .conversion-card {
+                padding: 1rem;
+            }
+
+            .conversions-footer {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .stat-card {
+                width: 100%;
+            }
+
+            .conversion-arrow {
+                position: relative;
+                top: 0;
+                left: 0 !important;
+                transform: translateY(-50%);
+                margin: 0.5rem auto;
+                clip-path: polygon(0 50%, 15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%);
+            }
+
+            .conversions-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+        }
+
+        /* Animation Classes */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .slide-in-right {
+            animation: slideInRight 0.6s ease-out;
+        }
+
+        /* Additional Enhancements */
+        .stat-card:nth-child(1) .stat-icon {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        }
+
+        .stat-card:nth-child(2) .stat-icon {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+        }
+
+        .stat-card:nth-child(3) .stat-icon {
+            background: linear-gradient(135deg, #56ab2f, #a8e6cf);
+        }
+
+        .stat-card:nth-child(4) .stat-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a67d8, #6b46c1);
+        }
+
+        /* Error message styles */
+        .error-message {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: #c53030;
+            padding: 1rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        /* (Limpado) Estilos de seções detalhadas, filtros e modais removidos por não serem mais usados */
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo-section">
+                        <div class="logo">R</div>
+                        <div class="logo-text">Megalink</div>
+                    </div>
+                    
+                    <nav class="nav-menu">
+                        <a href="{% url 'vendas_web:dashboard1' %}" class="nav-item active">
+                            Dashboard
+                        </a>
+                        <a href="{% url 'vendas_web:leads' %}" class="nav-item">
+                            Leads
+                        </a>
+                        <a href="{% url 'vendas_web:vendas' %}" class="nav-item">
+                            Vendas
+                        </a>
+                        <a href="#" class="nav-item">
+                            Relacionar
+                        </a>
+                        <a href="#" class="nav-item has-dropdown" id="analisarMenu">
+                            Analisar
+                            <i class="fas fa-chevron-down"></i>
+                            <div class="dropdown-menu" id="analisarDropdown">
+                                <a href="{% url 'vendas_web:relatorio_leads' %}" class="dropdown-item active">
+                                    Leads
+                                </a>
+                                <a href="#" class="dropdown-item">
+                                    Atendimentos
+                                </a>
+                            </div>
+                        </a>
+                    </nav>
+                </div>
+                
+                <div class="header-right">
+                    <div class="user-section">
+                        {% if user.is_authenticated %}
+                          <div class="user-avatar">{{ user.first_name|first|default:user.username|first|upper }}{{ user.last_name|first|upper|default:"" }}</div>
+                          <div class="user-info">
+                            <div class="user-name">{{ user.first_name|default:user.username }} {{ user.last_name|default:"" }}</div>
+                            <div class="user-company">ConsultePlus</div>
+                          </div>
+                        {% else %}
+                          <div class="user-avatar">?</div>
+                          <div class="user-info">
+                            <div class="user-name">Visitante</div>
+                            <div class="user-company">Não logado</div>
+                          </div>
+                        {% endif %}
+                        <div class="user-actions">
+                            <button class="chip-icon" title="Notificações"><i class="fas fa-bell"></i></button>
+                            <button class="chip-icon" title="Configurações"><i class="fas fa-cog"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Controls -->
+        <div class="dashboard-controls">
+            <div class="controls-content">
+                <div class="period-section">
+                    <span class="period-label">Período</span>
+                    <div class="period-selector">
+                        <span class="period-text">agosto 2025</span>
+                        <i class="fas fa-calendar period-icon"></i>
+                    </div>
+                    <span class="last-update">Última atualização em: 07/08/2025</span>
+                </div>
+                
+                <div class="controls-actions">
+                    <div class="control-icon" id="refreshBtn">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <div class="control-icon">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <div class="control-icon">
+                        <i class="fas fa-question"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading">
+            <div class="loading-spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent" style="display: none;">
+            <!-- Statistics Cards -->
+            <section class="stats-section fade-in-up">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-title">ATENDIMENTOS</div>
+                        <div class="stat-value" id="fluxosInicializados">126</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up change-arrow"></i>
+                            <span id="fluxosChange">+12,5% (14)</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card highlighted">
+                        <div class="stat-title">LEADS</div>
+                        <div class="stat-value" id="leadsCadastrados">67</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up change-arrow"></i>
+                            <span id="leadsChange">+8,2% (5)</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-title">PROSPECTOS</div>
+                        <div class="stat-value" id="totalProspectos">64</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up change-arrow"></i>
+                            <span id="prospectosChange">+6,7% (4)</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-title">VENDAS</div>
+                        <div class="stat-value" id="vendasValidadas">55</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up change-arrow"></i>
+                            <span id="vendasChange">+10,0% (5)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Setas de conversão posicionadas absolutamente -->
+                    <div class="conversion-arrow">53.17%</div>
+                    <div class="conversion-arrow">95.52%</div>
+                    <div class="conversion-arrow">85.94%</div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="charts-section slide-in-right">
+                <div class="section-header">
+                </div>
+                <div class="charts-grid">
+                    <!-- Trends Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-chart-line"></i> Evolução dos Últimos 7 Dias</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="trendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Latest Conversions Section -->
+            <section class="latest-conversions-section fade-in-up">
+                <div class="section-header">
+                    <i class="fas fa-clock"></i>
+                    <h2>Últimas conversões de Leads</h2>
+                </div>
+                <div class="conversions-container">
+                    <div class="conversions-grid">
+                        <div class="conversion-card">
+                            <div class="conversion-name">Felipe Silva</div>
+                            <div class="conversion-separator"></div>
+                            <div class="conversion-details">
+                                <div class="conversion-field">
+                                    <span class="field-label">Cargo:</span>
+                                    <span class="field-value">-</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Origem:</span>
+                                    <span class="field-value">WiFeed</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Data:</span>
+                                    <span class="field-value">08/08/2025 às 12:36</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="conversion-card">
+                            <div class="conversion-name">Edna Vitória</div>
+                            <div class="conversion-separator"></div>
+                            <div class="conversion-details">
+                                <div class="conversion-field">
+                                    <span class="field-label">Cargo:</span>
+                                    <span class="field-value">-</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Origem:</span>
+                                    <span class="field-value">WiFeed</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Data:</span>
+                                    <span class="field-value">08/08/2025 às 12:35</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="conversion-card">
+                            <div class="conversion-name">Daniel Silva</div>
+                            <div class="conversion-separator"></div>
+                            <div class="conversion-details">
+                                <div class="conversion-field">
+                                    <span class="field-label">Cargo:</span>
+                                    <span class="field-value">-</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Origem:</span>
+                                    <span class="field-value">WiFeed</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Data:</span>
+                                    <span class="field-value">08/08/2025 às 12:31</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="conversion-card">
+                            <div class="conversion-name">Joselma Silva</div>
+                            <div class="conversion-separator"></div>
+                            <div class="conversion-details">
+                                <div class="conversion-field">
+                                    <span class="field-label">Cargo:</span>
+                                    <span class="field-value">-</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Origem:</span>
+                                    <span class="field-value">WiFeed</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Data:</span>
+                                    <span class="field-value">08/08/2025 às 12:19</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="conversion-card">
+                            <div class="conversion-name">Cinthia Victoria</div>
+                            <div class="conversion-separator"></div>
+                            <div class="conversion-details">
+                                <div class="conversion-field">
+                                    <span class="field-label">Cargo:</span>
+                                    <span class="field-value">-</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Origem:</span>
+                                    <span class="field-value">WiFeed</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Data:</span>
+                                    <span class="field-value">08/08/2025 às 11:54</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="conversion-card">
+                            <div class="conversion-name">Rayca Silveira</div>
+                            <div class="conversion-separator"></div>
+                            <div class="conversion-details">
+                                <div class="conversion-field">
+                                    <span class="field-label">Cargo:</span>
+                                    <span class="field-value">-</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Origem:</span>
+                                    <span class="field-value">WiFeed</span>
+                                </div>
+                                <div class="conversion-field">
+                                    <span class="field-label">Data:</span>
+                                    <span class="field-value">08/08/2025 às 11:53</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="conversions-footer">
+                        <div class="conversions-info">
+                            <span>Mostrando os últimos 50 Leads que converteram</span>
+                        </div>
+                        <div class="conversions-navigation">
+                            <a href="#" class="view-all-link">Visualizar todos</a>
+                            <div class="navigation-arrows">
+                                <button class="nav-arrow prev-arrow">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button class="nav-arrow next-arrow">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+
+            
+
+            <!-- Error message placeholder -->
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+        </main>
+
+       
+
+    <script>
+        // URLs das APIs usando Django URL reverse
+        const API_URLS = {
+            data: '{% url "vendas_web:dashboard_data" %}',
+            charts: '{% url "vendas_web:dashboard_charts" %}',
+            tables: '{% url "vendas_web:dashboard_tables" %}',
+            leads: '{% url "vendas_web:dashboard_leads" %}',
+            prospectos: '{% url "vendas_web:dashboard_prospectos" %}',
+            historico: '{% url "vendas_web:dashboard_historico" %}',
+            realtimeContatos: '{% url "vendas_web:dashboard_contatos_realtime" %}',
+            ultimasConversoes: '{% url "vendas_web:dashboard_ultimas_conversoes" %}'
+        };
+
+        // Variáveis globais
+        let trendsChart = null;
+        // Seções detalhadas removidas: variáveis relacionadas não são mais necessárias
+
+        // Função para mostrar erro
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            console.error('Erro:', message);
+        }
+
+        // Função para ocultar erro
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+        }
+
+        // Função para fechar modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Função para carregar dados principais
+        async function loadDashboardData() {
+            try {
+                const response = await fetch(API_URLS.data);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Atualizar estatísticas
+                const stats = data.stats;
+                document.getElementById('fluxosInicializados').textContent = stats.atendimentos;
+                document.getElementById('leadsCadastrados').textContent = stats.leads;
+                document.getElementById('totalProspectos').textContent = stats.prospectos;
+                document.getElementById('vendasValidadas').textContent = stats.vendas;
+                
+                // Atualizar mudanças percentuais com diferenças
+                const formatarMudanca = (variacao, diff) => {
+                    const sinal = diff >= 0 ? '+' : '';
+                    return `${variacao} (${sinal}${diff})`;
+                };
+                
+                document.getElementById('fluxosChange').textContent = formatarMudanca(stats.atendimentos_variacao, stats.atendimentos_diff);
+                document.getElementById('leadsChange').textContent = formatarMudanca(stats.leads_variacao, stats.leads_diff);
+                document.getElementById('prospectosChange').textContent = formatarMudanca(stats.prospectos_variacao, stats.prospectos_diff);
+                document.getElementById('vendasChange').textContent = formatarMudanca(stats.vendas_variacao, stats.vendas_diff);
+                
+                // Atualizar classes de mudança baseadas na diferença
+                const atualizarClasseMudanca = (elementId, diff) => {
+                    const element = document.getElementById(elementId).parentElement;
+                    element.classList.remove('positive', 'negative', 'neutral');
+                    if (diff > 0) {
+                        element.classList.add('positive');
+                    } else if (diff < 0) {
+                        element.classList.add('negative');
+                    } else {
+                        element.classList.add('neutral');
+                    }
+                };
+                
+                atualizarClasseMudanca('fluxosChange', stats.atendimentos_diff);
+                atualizarClasseMudanca('leadsChange', stats.leads_diff);
+                atualizarClasseMudanca('prospectosChange', stats.prospectos_diff);
+                atualizarClasseMudanca('vendasChange', stats.vendas_diff);
+                
+                // Atualizar setas de conversão
+                const conversionArrows = document.querySelectorAll('.conversion-arrow');
+                if (conversionArrows.length >= 3) {
+                    conversionArrows[0].textContent = stats.taxa_atendimento_lead;
+                    conversionArrows[1].textContent = stats.taxa_lead_prospecto;
+                    conversionArrows[2].textContent = stats.taxa_prospecto_venda;
+                }
+                
+                hideError();
+            } catch (error) {
+                showError(`Erro ao carregar dados principais: ${error.message}`);
+            }
+        }
+
+        // Função para carregar dados dos gráficos
+        async function loadChartsData() {
+            try {
+                const response = await fetch(API_URLS.charts);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Atualizar gráfico de tendências (padrão: Leads)
+                updateTrendsChart(data.leadsUltimos7Dias, 'Leads');
+                // Guardar séries para troca via cards
+                window.TRENDS_SERIES = {
+                    atendimentos: data.atendimentosUltimos7Dias,
+                    leads: data.leadsUltimos7Dias,
+                    prospectos: data.prospectosUltimos7Dias,
+                    vendas: data.vendasUltimos7Dias
+                };
+                
+                hideError();
+            } catch (error) {
+                showError(`Erro ao carregar gráficos: ${error.message}`);
+            }
+        }
+
+        // Função para carregar dados das tabelas
+        async function loadTablesData() {
+            try {
+                const response = await fetch(API_URLS.tables);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Tabelas removidas
+                
+                hideError();
+            } catch (error) {
+                showError(`Erro ao carregar tabelas: ${error.message}`);
+            }
+        }
+
+        // Função para carregar últimas conversões
+        async function loadUltimasConversoes() {
+            try {
+                const response = await fetch(API_URLS.ultimasConversoes);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Atualizar cards de conversões
+                updateConversaoCards(data.conversoes);
+                
+                hideError();
+            } catch (error) {
+                showError(`Erro ao carregar últimas conversões: ${error.message}`);
+            }
+        }
+
+        // Função para atualizar cards de conversões
+        function updateConversaoCards(conversoes) {
+            const grid = document.querySelector('.conversions-grid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            
+            conversoes.forEach(conversao => {
+                const card = document.createElement('div');
+                card.className = 'conversion-card';
+                card.innerHTML = `
+                    <div class="conversion-name">${conversao.nome}</div>
+                    <div class="conversion-separator"></div>
+                    <div class="conversion-details">
+                        <div class="conversion-field">
+                            <span class="field-label">Empresa:</span>
+                            <span class="field-value">${conversao.empresa}</span>
+                        </div>
+                        <div class="conversion-field">
+                            <span class="field-label">Origem:</span>
+                            <span class="field-value">${conversao.origem}</span>
+                        </div>
+                        <div class="conversion-field">
+                            <span class="field-label">Data:</span>
+                            <span class="field-value">${conversao.data_cadastro}</span>
+                        </div>
+                        <div class="conversion-field">
+                            <span class="field-label">Valor:</span>
+                            <span class="field-value">${conversao.valor}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Gráfico de status removido
+
+        // Função para atualizar gráfico de tendências
+        function updateTrendsChart(data, label = 'Leads') {
+            const ctx = document.getElementById('trendsChart').getContext('2d');
+            
+            if (trendsChart) {
+                trendsChart.destroy();
+            }
+            
+            const labels = data.map(item => item.date);
+            const values = data.map(item => item.count);
+            
+            trendsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Tabelas removidas
+
+        // Abas removidas
+
+        // Funções para carregar dados detalhados
+        // Seções detalhadas removidas: loaders de listas não são necessários
+
+        
+
+        
+
+        // Funções para atualizar tabelas detalhadas
+        // Tabelas detalhadas removidas
+
+        
+
+        
+
+        // Funções para paginação
+        // Paginação removida
+
+        // Funções para visualização de detalhes (modais)
+        // Modais detalhados removidos
+
+        
+
+        
+
+        
+
+        
+
+        // Função para atualizar todos os dados
+        async function refreshDashboard() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            const originalText = refreshBtn.innerHTML;
+            
+            // Desabilitar botão e mostrar loading
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+            
+            try {
+                await Promise.all([
+                    loadDashboardData(),
+                    loadChartsData(),
+                    loadTablesData(),
+                    loadUltimasConversoes()
+                ]);
+                
+                // Seções detalhadas removidas: nada adicional a recarregar
+                
+            } catch (error) {
+                showError('Erro ao atualizar dashboard');
+            } finally {
+                // Reabilitar botão
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = originalText;
+            }
+        }
+
+        // Função principal de inicialização
+        async function initDashboard() {
+            try {
+                // Carregar todos os dados
+                await Promise.all([
+                    loadDashboardData(),
+                    loadChartsData(),
+                    loadTablesData(),
+                    loadUltimasConversoes()
+                ]);
+                
+                // Ocultar loading e mostrar conteúdo
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                showError('Erro ao inicializar dashboard');
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar dashboard
+            initDashboard();
+            
+            // Configurar botão de refresh
+            document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
+            
+            // Seções detalhadas removidas: sem abas, buscas ou filtros
+            
+            // Cards clicáveis para trocar a série do gráfico
+            setupMetricCards();
+            
+            // Auto-refresh a cada 30 segundos
+            setInterval(refreshDashboard, 30000);
+            
+            // Navegação de conversões mantida
+            
+            // Fechar modais clicando fora
+            window.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
+                }
+            });
+        });
+
+        function setupMetricCards() {
+            const cards = document.querySelectorAll('.stats-grid .stat-card');
+            const labelsMap = ['ATENDIMENTOS', 'LEADS', 'PROSPECTOS', 'VENDAS'];
+            const seriesKey = ['atendimentos', 'leads', 'prospectos', 'vendas'];
+            cards.forEach((card, idx) => {
+                card.addEventListener('click', () => {
+                    if (!window.TRENDS_SERIES) return;
+                    // Alternar estado ativo nos cards
+                    cards.forEach(c => c.classList.remove('highlighted'));
+                    card.classList.add('highlighted');
+                    const key = seriesKey[idx];
+                    const label = labelsMap[idx];
+                    const series = window.TRENDS_SERIES[key] || [];
+                    updateTrendsChart(series, label);
+                });
+            });
+        }
+
+        // Configurar navegação das conversões
+        function setupConversionsNavigation() {
+            const prevArrow = document.querySelector('.prev-arrow');
+            const nextArrow = document.querySelector('.next-arrow');
+            const viewAllLink = document.querySelector('.view-all-link');
+            
+            if (prevArrow) {
+                prevArrow.addEventListener('click', function() {
+                    // Lógica para navegar para o grupo anterior de conversões
+                    console.log('Navegar para conversões anteriores');
+                    // Aqui você pode implementar a lógica para carregar o grupo anterior
+                });
+            }
+            
+            if (nextArrow) {
+                nextArrow.addEventListener('click', function() {
+                    // Lógica para navegar para o próximo grupo de conversões
+                    console.log('Navegar para próximas conversões');
+                    // Aqui você pode implementar a lógica para carregar o próximo grupo
+                });
+            }
+            
+            if (viewAllLink) {
+                viewAllLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Lógica para visualizar todas as conversões
+                    console.log('Visualizar todas as conversões');
+                    // Aqui você pode implementar a lógica para abrir uma página com todas as conversões
+                });
+            }
+        }
+
+        // Buscas removidas
+
+        // Configurar handlers de filtros
+        // Filtros removidos
+
+        // Funções para atualizar filtros com dados dinâmicos
+        // Filtros dinâmicos removidos
+
+        
+
+        // Adicionar animações aos elementos quando eles entram na viewport
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observar todos os elementos com animação
+        document.addEventListener('DOMContentLoaded', () => {
+            const animatedElements = document.querySelectorAll('.fade-in-up, .slide-in-right');
+            animatedElements.forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(30px)';
+                el.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+                observer.observe(el);
+            });
+        });
+
+
+        // Dropdown functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const analisarMenu = document.getElementById('analisarMenu');
+            const analisarDropdown = document.getElementById('analisarDropdown');
+            let dropdownTimeout;
+
+            if (analisarMenu && analisarDropdown) {
+                analisarMenu.addEventListener('mouseenter', () => {
+                    clearTimeout(dropdownTimeout);
+                    analisarDropdown.classList.add('show');
+                });
+
+                analisarMenu.addEventListener('mouseleave', () => {
+                    dropdownTimeout = setTimeout(() => {
+                        analisarDropdown.classList.remove('show');
+                    }, 200);
+                });
+
+                analisarDropdown.addEventListener('mouseenter', () => {
+                    clearTimeout(dropdownTimeout);
+                });
+
+                analisarDropdown.addEventListener('mouseleave', () => {
+                    dropdownTimeout = setTimeout(() => {
+                        analisarDropdown.classList.remove('show');
+                    }, 200);
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!analisarMenu.contains(e.target) && !analisarDropdown.contains(e.target)) {
+                        analisarDropdown.classList.remove('show');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1296 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerenciar Vendas - ConsultePlus</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f8f9fa; color: #333; }
+    
+    /* Header (copiado do dashboard1) */
+    .header { background: white; border-bottom: 1px solid #e0e0e0; padding: 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: visible; }
+    .header-content { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display:flex; justify-content:space-between; align-items:center; height:64px; }
+    .header-left { display:flex; align-items:center; gap:1.5rem; }
+    .logo-section { display:flex; align-items:center; gap:.75rem; }
+    .logo { width:32px; height:32px; background:#333; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:14px; }
+    .logo-text { color:#333; font-size:1.1rem; font-weight:600; }
+    .nav-menu { display:flex; align-items:center; gap:0; margin-left:2rem; overflow: visible; }
+    .nav-item { position:relative; padding:0 1.5rem; height:64px; display:flex; align-items:center; color:#666; text-decoration:none; font-weight:500; font-size:.9rem; transition:all .2s; border-bottom:3px solid transparent; }
+
+    .nav-item:hover { color:#333; background:#f8f9fa; }
+    .nav-item.active { color:#1F3D59; border-bottom-color:#1F3D59; }
+    .nav-item i { margin-left:.5rem; font-size:.8rem; }
+    
+    /* Dropdown Menu */
+    .nav-item.has-dropdown { position:relative; display:flex; align-items:center; justify-content:center; }
+    .dropdown-menu { position:absolute; top:100%; left:50%; background:white; border:1px solid #e0e0e0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.15); min-width:220px; z-index:1000; opacity:0; visibility:hidden; transform:translateX(-50%) translateY(-10px); transition:all .2s ease; margin-top:-1px; width:auto; }
+    .dropdown-menu.show { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
+    .dropdown-item { display:block; padding:.75rem 1rem; color:#333; text-decoration:none; font-size:.9rem; font-weight:500; transition:background-color .2s; }
+    .dropdown-item:hover { background-color:#f8f9fa; }
+    .dropdown-item.active { color:#1F3D59; background-color:#eef3f7; }
+    
+    .header-right { display:flex; align-items:center; gap:1rem; }
+    .user-section { display:flex; align-items:center; gap:.75rem; padding:.5rem; border-radius:8px; cursor:pointer; transition:background-color .2s; }
+    .user-section:hover { background-color:#f5f5f5; }
+    .user-avatar { width:32px; height:32px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; font-size:.8rem; }
+    .user-info { display:flex; flex-direction:column; align-items:flex-start; }
+    .user-name { color:#333; font-weight:500; font-size:.85rem; }
+    .user-company { color:#666; font-size:.75rem; }
+    .user-actions { display:flex; align-items:center; gap:.5rem; margin-left:.5rem; }
+    .chip-icon { border:none; background:#e8f8f5; color:#2c3e50; border-radius:16px; padding:6px 10px; display:inline-flex; align-items:center; gap:6px; font-weight:600; cursor:pointer; transition: background .2s, transform .1s; }
+    .chip-icon:hover { background:#d1f2eb; }
+    .chip-icon:active { transform: scale(0.98); }
+
+    /* Página */
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .title { display:flex; align-items:center; gap:.5rem; }
+    .title h1 { font-size:1.5rem; font-weight:700; }
+    .actions { display:flex; gap:.5rem; }
+    .btn { padding: .6rem 1rem; border:none; border-radius:10px; font-weight:600; cursor:pointer; transition: all 0.3s ease; }
+    .btn-primary { background: linear-gradient(135deg, #4facfe, #00f2fe); color:white; }
+    .btn-success { background: linear-gradient(135deg, #1F3D59, #2a4f73); color:white; }
+    .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); color:white; }
+    .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); color:white; }
+
+    .filters-card, .stats-card, .list-card { background:white; border:1px solid #e0e0e0; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+    .card-header { background: #fff; padding:1rem 1.25rem; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; justify-content:space-between; border-top-left-radius:14px; border-top-right-radius:14px; }
+    .search { display:flex; gap:.5rem; align-items:center; }
+    .search input { padding:.6rem .8rem; border:2px solid #e0e0e0; border-radius:10px; min-width:260px; }
+    .search input:focus { outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.1); }
+
+    .filters-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; padding: 1rem 1.25rem; }
+    .filters-grid .field label { display:block; color:#666; font-weight:600; font-size:.9rem; margin-bottom:.4rem; }
+    .filters-grid .field select, .filters-grid .field input { width:100%; padding:.6rem .8rem; border:2px solid #e0e0e0; border-radius:10px; box-sizing:border-box; height:40px; font-size:.9rem; }
+    .filters-actions { display:flex; gap:.5rem; align-items:end; padding: 0 1.25rem 1.25rem; }
+    .btn-filter { background:#1F3D59; color:#fff; border:none; padding:.6rem 1rem; border-radius:10px; font-weight:600; cursor:pointer; }
+    .btn-clear { background:#eef3f7; color:#1F3D59; border:none; padding:.6rem 1rem; border-radius:10px; font-weight:600; cursor:pointer; }
+
+    .stats-grid { display:grid; grid-template-columns: repeat(5, 1fr); gap:1rem; padding:1rem; }
+    .stat { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:1.25rem; display:flex; align-items:center; gap:1rem; }
+    .stat .icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; }
+    .stat h4 { color:#666; font-weight:600; margin-bottom:.15rem; }
+    .stat .value { font-size:1.4rem; font-weight:800; }
+
+    .table-wrap { overflow:auto; padding: 0 2rem; }
+    table { width:100%; border-collapse:collapse; }
+    thead th { background:#fff; color:#333; padding:.85rem 1rem; text-align:left; font-weight:700; font-size:.85rem; position:sticky; top:0; border-bottom:2px solid #f0f0f0; }
+    tbody td { padding:.85rem 1rem; border-bottom:1px solid #eee; background:transparent; font-size:.95rem; }
+    tbody tr:hover { background:#f8f9ff; transition:background .2s ease; }
+
+    .chip { background:#eef3f7; color:#1F3D59; border-radius:16px; padding:.25rem .6rem; font-size:.8rem; font-weight:600; display:inline-flex; align-items:center; gap:.35rem; }
+    .pill { border-radius:14px; padding:.35rem .6rem; font-weight:600; font-size:.8rem; display:inline-flex; align-items:center; gap:.35rem; }
+    .pill-blue { background:#eef3f7; color:#1F3D59; }
+    .btn-pill { border:2px solid #e0e0e0; background:#fff; color:#1F3D59; border-radius:10px; padding:.35rem .6rem; cursor:pointer; transition: all 0.3s ease; }
+    .btn-pill:hover { border-color:#667eea; background:#667eea; color:#fff; transform: translateY(-1px); }
+    .btn-pill.btn-danger { border-color:#e74c3c; color:#e74c3c; }
+    .btn-pill.btn-danger:hover { background:#e74c3c; color:#fff; }
+    .btn-pill.btn-success { border-color:#27ae60; color:#27ae60; }
+    .btn-pill.btn-success:hover { background:#27ae60; color:#fff; }
+    .btn-pill.btn-warning { border-color:#f39c12; color:#f39c12; }
+    .btn-pill.btn-warning:hover { background:#f39c12; color:#fff; }
+    
+    .name-cell { display:flex; align-items:center; gap:.6rem; }
+    .avatar { width:36px; height:36px; border-radius:50%; background:#2ecc71; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
+    .link-blue { color:#2a6df4; text-decoration:none; }
+    .link-blue:hover { text-decoration: underline; }
+    .list-card .card-header { border-bottom:0; padding-left:2rem; padding-right:2rem; }
+
+    .pagination { display:flex; gap:.5rem; justify-content:center; padding:1rem; }
+    .pagination button { padding:.5rem 1rem; border:2px solid #e0e0e0; background:#fff; border-radius:8px; cursor:pointer; transition: all 0.3s ease; }
+    .pagination button.active, .pagination button:hover { border-color:#667eea; background:#667eea; color:#fff; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Modal Styles */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 20px; padding: 2rem; min-width: 600px; max-width: 90vw; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .modal-header h3 { margin: 0; color: #333; }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; }
+    .modal-close:hover { color: #333; }
+    .modal-body { margin-bottom: 1.5rem; }
+    .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; }
+    
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .form-field { display: flex; flex-direction: column; }
+    .form-field.full-width { grid-column: span 2; }
+    .form-field label { font-weight: 600; margin-bottom: 0.5rem; color: #333; }
+    .form-field input, .form-field select, .form-field textarea { padding: 0.75rem; border: 2px solid #e0e0e0; border-radius: 8px; transition: border-color 0.3s; }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus { outline: none; border-color: #667eea; }
+    .form-field textarea { resize: vertical; min-height: 80px; }
+
+    /* Status badges específicos para vendas */
+    .status-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+    .status-pendente { background: #fff3cd; color: #856404; }
+    .status-processando { background: #d1ecf1; color: #0c5460; }
+    .status-processado { background: #d4edda; color: #155724; }
+    .status-aguardando_validacao { background: #ffeeba; color: #856404; }
+    .status-validacao_aprovada { background: #d4edda; color: #155724; }
+    .status-validacao_rejeitada { background: #f8d7da; color: #721c24; }
+    .status-finalizado { background: #d1ecf1; color: #0c5460; }
+    .status-cancelado { background: #f8d7da; color: #721c24; }
+    .status-erro { background: #f8d7da; color: #721c24; }
+
+    /* Score display */
+    .score-display { display: flex; align-items: center; gap: 0.5rem; }
+    .score-bar { width: 40px; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+    .score-fill { height: 100%; background: linear-gradient(90deg, #e74c3c, #f39c12, #27ae60); border-radius: 3px; }
+    
+    /* Action buttons grid */
+    .actions-grid { display: flex; gap: 0.3rem; justify-content: center; }
+    
+    /* Loading spinner */
+    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Valor destaque */
+    .valor-destaque { font-weight: 700; color: #27ae60; }
+    .valor-zero { color: #666; }
+
+    /* Prioridade indicators */
+    .prioridade-1 { color: #6c757d; }
+    .prioridade-2 { color: #17a2b8; }
+    .prioridade-3 { color: #ffc107; }
+    .prioridade-4 { color: #fd7e14; }
+    .prioridade-5 { color: #dc3545; }
+
+    /* Timeline de histórico */
+    .historico-timeline { max-height: 400px; overflow-y: auto; }
+    .timeline-item { position: relative; padding-left: 2rem; margin-bottom: 1.5rem; border-left: 2px solid #e0e0e0; }
+    .timeline-item:last-child { border-left-color: transparent; }
+    .timeline-marker { position: absolute; left: -8px; top: 0; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; }
+    .timeline-marker.inicio { background: #3498db; }
+    .timeline-marker.sucesso { background: #27ae60; }
+    .timeline-marker.transferencia { background: #f39c12; }
+    .timeline-marker.conversao { background: #9b59b6; }
+    .timeline-marker.venda { background: #e74c3c; }
+    .timeline-marker.problema { background: #95a5a6; }
+    .timeline-marker.erro { background: #e74c3c; }
+    .timeline-marker.outros { background: #bdc3c7; }
+    
+    .timeline-content { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; }
+    .timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .timeline-status { font-weight: 600; }
+    .timeline-date { color: #666; font-size: 0.85rem; }
+    .timeline-details { font-size: 0.9rem; color: #555; }
+    .timeline-meta { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f0f0f0; display: flex; gap: 1rem; font-size: 0.8rem; color: #666; }
+    .timeline-transcricao { margin-top: 0.5rem; padding: 0.75rem; background: #f8f9fa; border-radius: 6px; font-size: 0.85rem; font-style: italic; }
+    .timeline-badges { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .timeline-badge { padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-converteu { background: #d4edda; color: #155724; }
+    .badge-venda { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="header-left">
+        <div class="logo-section">
+          <div class="logo">R</div>
+          <div class="logo-text">ConsultePlus</div>
+        </div>
+        <nav class="nav-menu">
+          <a href="{% url 'vendas_web:dashboard1' %}" class="nav-item">
+            Dashboard
+          </a>
+          <a href="{% url 'vendas_web:leads' %}" class="nav-item">
+            Leads
+          </a>
+          <a href="{% url 'vendas_web:vendas' %}" class="nav-item active">
+            Vendas
+          </a>
+          <a href="#" class="nav-item">Relacionar</a>
+          <a href="#" class="nav-item has-dropdown" id="analisarMenu">Analisar <i class="fas fa-chevron-down"></i>
+            <div class="dropdown-menu" id="analisarDropdown">
+              <a href="{% url 'vendas_web:relatorio_leads' %}" class="dropdown-item">
+                Leads
+              </a>
+              <a href="#" class="dropdown-item">
+                Atendimentos
+              </a>
+            </div>
+          </a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="user-section">
+          {% if user.is_authenticated %}
+            <div class="user-avatar">{{ user.first_name|first|default:user.username|first|upper }}{{ user.last_name|first|upper|default:"" }}</div>
+            <div class="user-info">
+              <div class="user-name">{{ user.first_name|default:user.username }} {{ user.last_name|default:"" }}</div>
+              <div class="user-company">ConsultePlus</div>
+            </div>
+          {% else %}
+            <div class="user-avatar">?</div>
+            <div class="user-info">
+              <div class="user-name">Visitante</div>
+              <div class="user-company">Não logado</div>
+            </div>
+          {% endif %}
+          <div class="user-actions">
+            <button class="chip-icon" title="Notificações"><i class="fas fa-bell"></i></button>
+            <button class="chip-icon" title="Configurações"><i class="fas fa-cog"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Filtros -->
+    <div class="filters-card">
+      <div class="card-header">
+        <div style="display:flex; align-items:center; gap:.5rem;">
+          <i class="fas fa-filter" style="color:#1F3D59"></i>
+          <strong>Filtros de Vendas</strong>
+        </div>
+      </div>
+      <div class="filters-grid">
+        <div class="field">
+          <label>Status de Validação</label>
+          <select id="statusFilter">
+            <option value="">Todos</option>
+            <option value="aguardando_validacao">Aguardando Validação</option>
+            <option value="validacao_aprovada">Validação Aprovada</option>
+            <option value="validacao_rejeitada">Validação Rejeitada</option>
+            <option value="processado">Processado</option>
+            <option value="finalizado">Finalizado</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Prioridade</label>
+          <select id="prioridadeFilter">
+            <option value="">Todas</option>
+            <option value="5">Alta (5)</option>
+            <option value="4">Média-Alta (4)</option>
+            <option value="3">Média (3)</option>
+            <option value="2">Baixa-Média (2)</option>
+            <option value="1">Baixa (1)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Pesquisar</label>
+          <input type="text" id="searchInput" placeholder="Nome do prospecto..." />
+        </div>
+        <div class="field">
+          <label>Data Início</label>
+          <input type="date" id="dataInicio" />
+        </div>
+        <div class="field">
+          <label>Data Fim</label>
+          <input type="date" id="dataFim" />
+        </div>
+      </div>
+      <div class="filters-actions">
+        <button class="btn-filter" id="btnFiltrar"><i class="fas fa-search"></i> Filtrar</button>
+        <button class="btn-clear" id="btnLimpar"><i class="fas fa-times"></i> Limpar</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-card" style="margin-top:1rem;">
+      <div class="card-header">
+        <div style="display:flex; align-items:center; gap:.5rem;">
+          <i class="fas fa-chart-line" style="color:#1F3D59"></i>
+          <strong>Estatísticas de Vendas</strong>
+        </div>
+        <div class="actions">
+          <button class="btn-primary" id="btnExportar"><i class="fas fa-download"></i> Exportar</button>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><i class="fas fa-clipboard-list"></i></div>
+          <div>
+            <h4>Total de Prospectos</h4>
+            <div class="value" id="statTotal">0</div>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="icon" style="background:linear-gradient(135deg,#f39c12,#d68910)"><i class="fas fa-clock"></i></div>
+          <div>
+            <h4>Aguardando Validação</h4>
+            <div class="value" id="statAguardando">0</div>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="icon" style="background:linear-gradient(135deg,#27ae60,#2ecc71)"><i class="fas fa-check-circle"></i></div>
+          <div>
+            <h4>Vendas Aprovadas</h4>
+            <div class="value" id="statAprovadas">0</div>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="icon" style="background:linear-gradient(135deg,#e74c3c,#c0392b)"><i class="fas fa-times-circle"></i></div>
+          <div>
+            <h4>Vendas Rejeitadas</h4>
+            <div class="value" id="statRejeitadas">0</div>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="icon" style="background:linear-gradient(135deg,#9b59b6,#8e44ad)"><i class="fas fa-trophy"></i></div>
+          <div>
+            <h4>Score Médio</h4>
+            <div class="value" id="statScoreMedio">0%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="list-card" style="margin-top:1rem;">
+      <div class="card-header">
+        <div style="display:flex; align-items:center; gap:.5rem;">
+          <i class="fas fa-handshake"></i>
+          <strong>Prospectos para Validação de Vendas</strong>
+        </div>
+        <div class="chip" id="contadorChip">0 registro(s)</div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="prospectosTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Prospecto</th>
+              <th>Lead Relacionado</th>
+              <th>Status</th>
+              <th>Data Criação</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <!-- Modal para Validar Venda -->
+  <div id="modalValidacao" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Validar Venda</h3>
+        <button class="modal-close" onclick="fecharModal('modalValidacao')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Informações do Lead Relacionado -->
+        <div class="lead-info-section" style="background: #f8f9fa; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
+          <h4 style="margin-bottom: 1rem; color: #1F3D59;">Informações do Lead</h4>
+          <div class="lead-info-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+            <div>
+              <label style="font-weight: 600; color: #666; font-size: 0.9rem;">Nome/Razão Social:</label>
+              <div id="leadNome" style="font-weight: 500; margin-top: 0.25rem;">-</div>
+            </div>
+            <div>
+              <label style="font-weight: 600; color: #666; font-size: 0.9rem;">Email:</label>
+              <div id="leadEmail" style="font-weight: 500; margin-top: 0.25rem;">-</div>
+            </div>
+            <div>
+              <label style="font-weight: 600; color: #666; font-size: 0.9rem;">Telefone:</label>
+              <div id="leadTelefone" style="font-weight: 500; margin-top: 0.25rem;">-</div>
+            </div>
+            <div>
+              <label style="font-weight: 600; color: #666; font-size: 0.9rem;">Empresa:</label>
+              <div id="leadEmpresa" style="font-weight: 500; margin-top: 0.25rem;">-</div>
+            </div>
+            <div>
+              <label style="font-weight: 600; color: #666; font-size: 0.9rem;">Valor do Lead:</label>
+              <div id="leadValor" style="font-weight: 700; margin-top: 0.25rem; color: #27ae60;">R$ 0,00</div>
+            </div>
+            <div>
+              <label style="font-weight: 600; color: #666; font-size: 0.9rem;">Origem:</label>
+              <div id="leadOrigem" style="font-weight: 500; margin-top: 0.25rem;">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Formulário de Validação -->
+        <form id="formValidacao">
+          <div class="form-field">
+            <label>Observações da Validação *</label>
+            <textarea id="observacoesValidacao" rows="4" placeholder="Digite suas observações sobre a validação da venda..." required></textarea>
+            <small style="color: #666; font-size: 0.8rem;">
+              Para aprovar: descreva os motivos da aprovação<br>
+              Para rejeitar: explique os motivos da rejeição
+            </small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modalValidacao')">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnRejeitarVenda">Rejeitar Venda</button>
+        <button type="button" class="btn btn-success" id="btnAprovarVenda">Aprovar Venda</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmação -->
+  <div id="modalConfirmacao" class="modal">
+    <div class="modal-content" style="min-width: 400px;">
+      <div class="modal-header">
+        <h3>Confirmar Ação</h3>
+        <button class="modal-close" onclick="fecharModal('modalConfirmacao')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="mensagemConfirmacao">Tem certeza que deseja realizar esta ação?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modalConfirmacao')">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmar">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Histórico de Contatos -->
+  <div id="modalHistorico" class="modal">
+    <div class="modal-content" style="min-width: 800px; max-width: 95vw;">
+      <div class="modal-header">
+        <h3 id="historicoTitle">Histórico de Contatos</h3>
+        <button class="modal-close" onclick="fecharModal('modalHistorico')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Estatísticas do histórico -->
+        <div class="historico-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+          <div class="stat-card" style="padding: 1rem; background: #f8f9fa; border-radius: 8px; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #1F3D59;" id="statTotalContatos">0</div>
+            <div style="font-size: 0.9rem; color: #666;">Total Contatos</div>
+          </div>
+          <div class="stat-card" style="padding: 1rem; background: #f8f9fa; border-radius: 8px; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #27ae60;" id="statConvertidos">0</div>
+            <div style="font-size: 0.9rem; color: #666;">Convertidos</div>
+          </div>
+          <div class="stat-card" style="padding: 1rem; background: #f8f9fa; border-radius: 8px; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #e74c3c;" id="statVendas">0</div>
+            <div style="font-size: 0.9rem; color: #666;">Vendas</div>
+          </div>
+          <div class="stat-card" style="padding: 1rem; background: #f8f9fa; border-radius: 8px; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #667eea;" id="statTaxaConversao">0%</div>
+            <div style="font-size: 0.9rem; color: #666;">Taxa Conversão</div>
+          </div>
+        </div>
+
+        <!-- Timeline de contatos -->
+        <div class="historico-timeline" id="historicoTimeline">
+          <div style="text-align: center; padding: 2rem; color: #666;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i>
+            <div style="margin-top: 1rem;">Carregando histórico...</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modalHistorico')">Fechar</button>
+        <button type="button" class="btn btn-primary" id="btnExportarHistorico">Exportar Histórico</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+  </div>
+
+  <script>
+    const API_PROSPECTOS = '{% url "vendas_web:dashboard_prospectos" %}';
+    const API_APROVAR_VENDA = '{% url "vendas_web:aprovar_venda" %}';
+    const API_REJEITAR_VENDA = '{% url "vendas_web:rejeitar_venda" %}';
+    const API_HISTORICO = '{% url "vendas_web:historico_contatos" %}';
+    let page = 1; 
+    let search = ''; 
+    let filtros = { 
+      status: '', 
+      prioridade: '', 
+      score: '',
+      data_inicio: '', 
+      data_fim: ''
+    };
+    let prospectoValidando = null;
+
+    // Funções utilitárias
+    function getStatusClass(status) {
+      const statusMap = {
+        'pendente': 'status-pendente',
+        'processando': 'status-processado',
+        'processado': 'status-sucesso',
+        'aguardando_validacao': 'status-pendente',
+        'validacao_aprovada': 'status-sucesso',
+        'validacao_rejeitada': 'status-rejeitado',
+        'erro': 'status-erro'
+      };
+      return statusMap[status] || 'status-pendente';
+    }
+
+    function getPrioridadeText(prioridade) {
+      const prioridadeMap = {
+        5: 'Muito Alta',
+        4: 'Alta',
+        3: 'Média',
+        2: 'Baixa-Média',
+        1: 'Baixa'
+      };
+      return prioridadeMap[prioridade] || 'Não definida';
+    }
+
+    function mostrarNotificacao(mensagem, tipo = 'info') {
+      console.log(`[${tipo.toUpperCase()}] ${mensagem}`);
+      alert(mensagem);
+    }
+
+    function mostrarLoading(mostrar) {
+      // Implementar loading visual se necessário
+      console.log('Loading:', mostrar);
+    }
+
+    function atualizarContador(total) {
+      const contador = document.getElementById('contadorChip');
+      if (contador) {
+        contador.textContent = `${total} registro(s)`;
+      }
+    }
+
+    // Funções principais
+    async function carregarProspectos() {
+      mostrarLoading(true);
+      try {
+        const params = new URLSearchParams({ page, search, ...filtros });
+        const resp = await fetch(`${API_PROSPECTOS}?${params}`);
+        const data = await resp.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        renderizarTabela(data.prospectos || []);
+        // renderPaginacao(data.page || 1, data.pages || 1); // TODO: Implementar
+        // popularFiltros(data); // TODO: Implementar
+        atualizarContador(data.total || 0);
+        atualizarStats(data);
+        
+      } catch (error) {
+        console.error('Erro ao carregar prospectos:', error);
+        mostrarNotificacao('Erro ao carregar prospectos: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    function renderizarTabela(prospectos) {
+      const tbody = document.querySelector('#prospectosTable tbody');
+      tbody.innerHTML = '';
+      
+      if (prospectos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:#666;">Nenhum prospecto encontrado</td></tr>';
+        return;
+      }
+
+      prospectos.forEach(prospecto => {
+        const tr = document.createElement('tr');
+        const iniciais = (prospecto.nome_prospecto || '?').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+        
+        // Status badge
+        const statusClass = getStatusClass(prospecto.status);
+        
+        // Score display
+        const scoreDisplay = prospecto.score_conversao ? 
+          `<div class="score-display">
+            <span>${prospecto.score_conversao}%</span>
+            <div class="score-bar">
+              <div class="score-fill" style="width: ${prospecto.score_conversao}%"></div>
+            </div>
+          </div>` : '-';
+
+        // Prioridade
+        const prioridadeClass = `prioridade-${prospecto.prioridade}`;
+        const prioridadeText = getPrioridadeText(prospecto.prioridade);
+
+        // Lead relacionado - informações mais completas
+        const leadInfo = prospecto.lead ? 
+          `<div>
+            <div style="font-weight:600; margin-bottom: 0.25rem;">${prospecto.lead.nome_razaosocial}</div>
+            <div style="color:#666; font-size:.8rem; margin-bottom: 0.1rem;">
+              <i class="fas fa-envelope" style="margin-right: 0.3rem;"></i>${prospecto.lead.email || 'Sem email'}
+            </div>
+            <div style="color:#666; font-size:.8rem; margin-bottom: 0.1rem;">
+              <i class="fas fa-phone" style="margin-right: 0.3rem;"></i>${prospecto.lead.telefone || 'Sem telefone'}
+            </div>
+            <div style="color:#27ae60; font-size:.8rem; font-weight:600;">
+              <i class="fas fa-dollar-sign" style="margin-right: 0.3rem;"></i>${prospecto.lead.valor || 'R$ 0,00'}
+            </div>
+          </div>` : 
+          '<span style="color:#999; font-style: italic;">Sem lead relacionado</span>';
+
+        tr.innerHTML = `
+          <td>${prospecto.id}</td>
+          <td>
+            <div class="name-cell">
+              <div class="avatar">${iniciais}</div>
+              <div>
+                <div style="font-weight:700">${prospecto.nome_prospecto}</div>
+                <div style="color:#666; font-size:.85rem;">
+                  <i class="fas fa-fingerprint" style="margin-right: 0.3rem;"></i>
+                  ${prospecto.id_prospecto_hubsoft || 'Sem ID Hubsoft'}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td style="min-width: 250px;">${leadInfo}</td>
+          <td><span class="status-badge ${statusClass}">${prospecto.status_display}</span></td>
+          <td>${prospecto.data_criacao}</td>
+          <td>
+            <div class="actions-grid">
+              <button class="btn-pill" onclick="visualizarProspecto(${prospecto.id})" title="Visualizar">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn-pill" onclick="visualizarHistorico(${prospecto.id}, 'prospecto')" title="Histórico de Contatos">
+                <i class="fas fa-history"></i>
+              </button>
+              ${prospecto.status === 'processado' || prospecto.status === 'aguardando_validacao' ? 
+                `<button class="btn-pill btn-warning" onclick="validarVenda(${prospecto.id})" title="Validar Venda">
+                  <i class="fas fa-handshake"></i>
+                </button>` : ''}
+              ${prospecto.status === 'validacao_aprovada' ? 
+                `<button class="btn-pill btn-success" title="Venda Aprovada" disabled>
+                  <i class="fas fa-check"></i>
+                </button>` : ''}
+              ${prospecto.status === 'validacao_rejeitada' ? 
+                `<button class="btn-pill btn-danger" title="Venda Rejeitada" disabled>
+                  <i class="fas fa-times"></i>
+                </button>` : ''}
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getStatusClass(status) {
+      return `status-${status}`;
+    }
+
+    function getStatusText(status) {
+      const statusMap = {
+        'pendente': 'Pendente',
+        'processando': 'Processando',
+        'processado': 'Processado',
+        'aguardando_validacao': 'Aguardando Validação',
+        'validacao_aprovada': 'Venda Aprovada',
+        'validacao_rejeitada': 'Venda Rejeitada',
+        'finalizado': 'Finalizado',
+        'cancelado': 'Cancelado',
+        'erro': 'Erro'
+      };
+      return statusMap[status] || status;
+    }
+
+    function getPrioridadeText(prioridade) {
+      const prioridadeMap = {
+        1: 'Baixa',
+        2: 'Baixa-Média',
+        3: 'Média',
+        4: 'Média-Alta',
+        5: 'Alta'
+      };
+      return prioridadeMap[prioridade] || `Nível ${prioridade}`;
+    }
+
+    function renderPaginacao(currentPage, totalPages) {
+      const div = document.getElementById('pagination');
+      div.innerHTML = '';
+      
+      if (totalPages <= 1) return;
+
+      // Botão anterior
+      const prev = document.createElement('button');
+      prev.textContent = '‹ Anterior';
+      prev.disabled = currentPage === 1;
+      prev.onclick = () => { page = currentPage - 1; carregarProspectos(); };
+      div.appendChild(prev);
+
+      // Números das páginas
+      const startPage = Math.max(1, currentPage - 2);
+      const endPage = Math.min(totalPages, currentPage + 2);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === currentPage) btn.classList.add('active');
+        btn.onclick = () => { page = i; carregarProspectos(); };
+        div.appendChild(btn);
+      }
+
+      // Botão próximo
+      const next = document.createElement('button');
+      next.textContent = 'Próximo ›';
+      next.disabled = currentPage === totalPages;
+      next.onclick = () => { page = currentPage + 1; carregarProspectos(); };
+      div.appendChild(next);
+    }
+
+    function popularFiltros(data) {
+      // Os filtros são estáticos nesta versão
+    }
+
+    function atualizarStats(data) {
+      document.getElementById('contadorChip').textContent = `${data.total || 0} registro(s)`;
+      
+      // Stats básicas
+      document.getElementById('statTotal').textContent = data.total || 0;
+      
+      // Usar dados reais quando disponíveis
+      const prospectos = data.prospectos || [];
+      const aguardando = prospectos.filter(p => p.status === 'aguardando_validacao' || p.status === 'processado').length;
+      const aprovadas = prospectos.filter(p => p.status === 'validacao_aprovada').length;
+      const rejeitadas = prospectos.filter(p => p.status === 'validacao_rejeitada').length;
+      
+      document.getElementById('statAguardando').textContent = aguardando;
+      document.getElementById('statAprovadas').textContent = aprovadas;
+      document.getElementById('statRejeitadas').textContent = rejeitadas;
+      
+      // Score médio
+      const prospectosComScore = prospectos.filter(p => p.score_conversao);
+      const scoreMedio = prospectosComScore.length > 0 ? 
+        prospectosComScore.reduce((sum, p) => sum + parseFloat(p.score_conversao), 0) / prospectosComScore.length : 0;
+      
+      document.getElementById('statScoreMedio').textContent = `${scoreMedio.toFixed(1)}%`;
+    }
+
+    // Funções de histórico (cópia da página de leads)
+    async function visualizarHistorico(id, tipo) {
+      try {
+        mostrarLoading(true);
+        
+        // Buscar dados do histórico
+        const params = new URLSearchParams();
+        if (tipo === 'lead') {
+          params.append('lead_id', id);
+        } else if (tipo === 'prospecto') {
+          params.append('prospecto_id', id);
+        }
+        
+        const response = await fetch(`${API_HISTORICO}?${params}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Erro ao carregar histórico');
+        }
+        
+        // Atualizar modal
+        document.getElementById('historicoTitle').textContent = 
+          `Histórico de Contatos - ${tipo === 'lead' ? 'Lead' : 'Prospecto'} #${id}`;
+        
+        // Atualizar estatísticas
+        const stats = data.estatisticas;
+        document.getElementById('statTotalContatos').textContent = stats.total_contatos;
+        document.getElementById('statConvertidos').textContent = stats.contatos_convertidos;
+        document.getElementById('statVendas').textContent = stats.vendas_convertidas;
+        document.getElementById('statTaxaConversao').textContent = `${stats.taxa_conversao_lead.toFixed(1)}%`;
+        
+        // Renderizar timeline
+        renderizarTimeline(data.historicos);
+        
+        // Mostrar modal
+        document.getElementById('modalHistorico').style.display = 'block';
+        
+      } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+        mostrarNotificacao('Erro ao carregar histórico: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    function renderizarTimeline(historicos) {
+      const timeline = document.getElementById('historicoTimeline');
+      
+      if (historicos.length === 0) {
+        timeline.innerHTML = `
+          <div style="text-align: center; padding: 2rem; color: #666;">
+            <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+            <div>Nenhum histórico de contato encontrado</div>
+          </div>
+        `;
+        return;
+      }
+      
+      timeline.innerHTML = '';
+      
+      historicos.forEach((historico, index) => {
+        const item = document.createElement('div');
+        item.className = 'timeline-item';
+        
+        const markerClass = `timeline-marker ${historico.status.categoria}`;
+        
+        // Badges de conversão
+        let badges = '';
+        if (historico.converteu_lead) {
+          badges += '<span class="timeline-badge badge-converteu">Lead Convertido</span>';
+        }
+        if (historico.converteu_venda) {
+          badges += '<span class="timeline-badge badge-venda">Venda Convertida</span>';
+        }
+        
+        // Transcrição
+        let transcricaoHtml = '';
+        if (historico.transcricao) {
+          transcricaoHtml = `<div class="timeline-transcricao">"${historico.transcricao}"</div>`;
+        }
+        
+        item.innerHTML = `
+          <div class="${markerClass}"></div>
+          <div class="timeline-content">
+            <div class="timeline-header">
+              <div class="timeline-status">${historico.status.display}</div>
+              <div class="timeline-date">${historico.data_hora}</div>
+            </div>
+            <div class="timeline-details">
+              <strong>${historico.nome_contato}</strong> • ${historico.telefone}
+            </div>
+            ${transcricaoHtml}
+            <div class="timeline-meta">
+              <span><i class="fas fa-clock"></i> ${historico.duracao}</span>
+              ${historico.lead ? `<span><i class="fas fa-user"></i> ${historico.lead.nome}</span>` : ''}
+              ${historico.observacoes ? `<span><i class="fas fa-comment"></i> ${historico.observacoes}</span>` : ''}
+            </div>
+            ${badges ? `<div class="timeline-badges">${badges}</div>` : ''}
+          </div>
+        `;
+        
+        timeline.appendChild(item);
+      });
+    }
+
+    // Funções de ação
+    async function visualizarProspecto(id) {
+      try {
+        mostrarLoading(true);
+        // Implementar visualização detalhada
+        mostrarNotificacao('Funcionalidade de visualização em desenvolvimento', 'info');
+      } catch (error) {
+        mostrarNotificacao('Erro ao visualizar prospecto: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    // Função para visualizar detalhes do prospecto
+    async function visualizarProspecto(id) {
+      try {
+        mostrarLoading(true);
+        const resp = await fetch(`${API_PROSPECTOS}?id=${id}`);
+        const data = await resp.json();
+        
+        if (data.error || !data.prospectos || data.prospectos.length === 0) {
+          throw new Error('Prospecto não encontrado');
+        }
+        
+        const prospecto = data.prospectos[0];
+        
+        // Exibir informações em um alert simples por enquanto
+        let info = `ID: ${prospecto.id}\n`;
+        info += `Nome: ${prospecto.nome_prospecto}\n`;
+        info += `Status: ${prospecto.status_display}\n`;
+        info += `Data Criação: ${prospecto.data_criacao}\n`;
+        if (prospecto.lead) {
+          info += `\nLead Relacionado:\n`;
+          info += `- Nome: ${prospecto.lead.nome_razaosocial}\n`;
+          info += `- Email: ${prospecto.lead.email || 'Não informado'}\n`;
+          info += `- Telefone: ${prospecto.lead.telefone || 'Não informado'}`;
+        }
+        
+        alert(info);
+        
+      } catch (error) {
+        mostrarNotificacao('Erro ao carregar prospecto: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    async function validarVenda(id) {
+      try {
+        mostrarLoading(true);
+        const resp = await fetch(`${API_PROSPECTOS}?id=${id}`);
+        const data = await resp.json();
+        
+        if (data.error || !data.prospectos || data.prospectos.length === 0) {
+          throw new Error('Prospecto não encontrado');
+        }
+        
+        const prospecto = data.prospectos[0];
+        prospectoValidando = prospecto;
+        
+        // Preencher informações do lead
+        if (prospecto.lead) {
+          document.getElementById('leadNome').textContent = prospecto.lead.nome_razaosocial;
+          document.getElementById('leadEmail').textContent = prospecto.lead.email || 'Não informado';
+          document.getElementById('leadTelefone').textContent = prospecto.lead.telefone || 'Não informado';
+          document.getElementById('leadEmpresa').textContent = prospecto.lead.empresa || 'Não informado';
+          document.getElementById('leadValor').textContent = prospecto.lead.valor || 'R$ 0,00';
+          document.getElementById('leadOrigem').textContent = 'Lead #' + prospecto.lead.id;
+        } else {
+          document.getElementById('leadNome').textContent = 'Sem lead relacionado';
+          document.getElementById('leadEmail').textContent = '-';
+          document.getElementById('leadTelefone').textContent = '-';
+          document.getElementById('leadEmpresa').textContent = '-';
+          document.getElementById('leadValor').textContent = 'R$ 0,00';
+          document.getElementById('leadOrigem').textContent = '-';
+        }
+        
+        // Limpar observações
+        document.getElementById('observacoesValidacao').value = '';
+        
+        document.getElementById('modalValidacao').style.display = 'block';
+        
+      } catch (error) {
+        mostrarNotificacao('Erro ao carregar prospecto: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    async function aprovarVenda() {
+      if (!prospectoValidando) return;
+      
+      const observacoes = document.getElementById('observacoesValidacao').value;
+      
+      if (!observacoes.trim()) {
+        mostrarNotificacao('Por favor, informe as observações da validação', 'erro');
+        return;
+      }
+      
+      try {
+        mostrarLoading(true);
+        
+        const response = await fetch(API_APROVAR_VENDA, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          },
+          body: JSON.stringify({
+            prospecto_id: prospectoValidando.id,
+            observacoes: observacoes
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Erro na resposta do servidor');
+        }
+        
+        if (data.success) {
+          fecharModal('modalValidacao');
+          await carregarProspectos();
+          mostrarNotificacao(data.message, 'sucesso');
+        } else {
+          throw new Error(data.error || 'Erro desconhecido');
+        }
+        
+      } catch (error) {
+        mostrarNotificacao('Erro ao aprovar venda: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    async function rejeitarVenda() {
+      if (!prospectoValidando) return;
+      
+      const observacoes = document.getElementById('observacoesValidacao').value;
+      
+      if (!observacoes.trim()) {
+        mostrarNotificacao('Por favor, informe o motivo da rejeição', 'erro');
+        return;
+      }
+      
+      try {
+        mostrarLoading(true);
+        
+        const response = await fetch(API_REJEITAR_VENDA, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          },
+          body: JSON.stringify({
+            prospecto_id: prospectoValidando.id,
+            motivo_rejeicao: observacoes
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Erro na resposta do servidor');
+        }
+        
+        if (data.success) {
+          fecharModal('modalValidacao');
+          await carregarProspectos();
+          mostrarNotificacao(data.message, 'info');
+        } else {
+          throw new Error(data.error || 'Erro desconhecido');
+        }
+        
+      } catch (error) {
+        mostrarNotificacao('Erro ao rejeitar venda: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    async function exportarDados() {
+      try {
+        mostrarLoading(true);
+        // Implementar exportação
+        mostrarNotificacao('Funcionalidade de exportação em desenvolvimento', 'info');
+      } catch (error) {
+        mostrarNotificacao('Erro ao exportar: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    // Funções utilitárias
+    function getCsrfToken() {
+      const name = 'csrftoken';
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    function mostrarLoading(mostrar) {
+      document.getElementById('loadingOverlay').style.display = mostrar ? 'flex' : 'none';
+    }
+
+
+
+    function fecharModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+      prospectoValidando = null;
+    }
+
+    function confirmarAcao(mensagem, callback) {
+      document.getElementById('mensagemConfirmacao').textContent = mensagem;
+      document.getElementById('btnConfirmar').onclick = () => {
+        fecharModal('modalConfirmacao');
+        callback();
+      };
+      document.getElementById('modalConfirmacao').style.display = 'block';
+    }
+
+    async function rejeitarVenda() {
+      if (!prospectoValidando) return;
+      
+      const observacoes = document.getElementById('observacoesValidacao').value;
+      
+      if (!observacoes.trim()) {
+        mostrarNotificacao('Por favor, informe o motivo da rejeição', 'erro');
+        return;
+      }
+      
+      try {
+        mostrarLoading(true);
+        
+        const response = await fetch(API_REJEITAR_VENDA, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          },
+          body: JSON.stringify({
+            prospecto_id: prospectoValidando.id,
+            motivo_rejeicao: observacoes
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Erro ao rejeitar venda');
+        }
+        
+        mostrarNotificacao('Venda rejeitada com sucesso!', 'sucesso');
+        fecharModal('modalValidacao');
+        carregarProspectos(); // Recarregar lista
+        
+      } catch (error) {
+        console.error('Erro ao rejeitar venda:', error);
+        mostrarNotificacao('Erro ao rejeitar venda: ' + error.message, 'erro');
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    function exportarDados() {
+      mostrarNotificacao('Funcionalidade de exportação em desenvolvimento', 'info');
+    }
+
+    function getCsrfToken() {
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+          return value;
+        }
+      }
+      return '';
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      // Filtros
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          search = e.target.value;
+          page = 1;
+          debounceCarregar();
+        });
+      }
+
+      ['statusFilter', 'prioridadeFilter'].forEach(filtroId => {
+        const elemento = document.getElementById(filtroId);
+        if (elemento) {
+          elemento.addEventListener('change', (e) => {
+            const key = filtroId.replace('Filter', '');
+            filtros[key] = e.target.value;
+            page = 1;
+            carregarProspectos();
+          });
+        }
+      });
+
+      const dataInicio = document.getElementById('dataInicio');
+      if (dataInicio) {
+        dataInicio.addEventListener('change', (e) => {
+          filtros.data_inicio = e.target.value;
+          page = 1;
+          carregarProspectos();
+        });
+      }
+
+      const dataFim = document.getElementById('dataFim');
+      if (dataFim) {
+        dataFim.addEventListener('change', (e) => {
+          filtros.data_fim = e.target.value;
+          page = 1;
+          carregarProspectos();
+        });
+      }
+
+      // Botões
+      const btnFiltrar = document.getElementById('btnFiltrar');
+      if (btnFiltrar) {
+        btnFiltrar.addEventListener('click', () => {
+          page = 1;
+          carregarProspectos();
+        });
+      }
+
+      const btnLimpar = document.getElementById('btnLimpar');
+      if (btnLimpar) {
+        btnLimpar.addEventListener('click', () => {
+          search = '';
+          filtros = { status: '', prioridade: '', score: '', data_inicio: '', data_fim: '' };
+          
+          // Limpar campos que existem
+          if (searchInput) searchInput.value = '';
+          const statusFilter = document.getElementById('statusFilter');
+          if (statusFilter) statusFilter.value = '';
+          const prioridadeFilter = document.getElementById('prioridadeFilter');
+          if (prioridadeFilter) prioridadeFilter.value = '';
+          if (dataInicio) dataInicio.value = '';
+          if (dataFim) dataFim.value = '';
+          
+          page = 1;
+          carregarProspectos();
+        });
+      }
+
+      const btnExportar = document.getElementById('btnExportar');
+      if (btnExportar) {
+        btnExportar.addEventListener('click', exportarDados);
+      }
+
+      // Modal actions
+      const btnAprovarVenda = document.getElementById('btnAprovarVenda');
+      if (btnAprovarVenda) {
+        btnAprovarVenda.addEventListener('click', aprovarVenda);
+      }
+      
+      const btnRejeitarVenda = document.getElementById('btnRejeitarVenda');
+      if (btnRejeitarVenda) {
+        btnRejeitarVenda.addEventListener('click', rejeitarVenda);
+      }
+
+      // Dropdown navigation
+      const analisarMenu = document.getElementById('analisarMenu');
+      const analisarDropdown = document.getElementById('analisarDropdown');
+      let dropdownTimeout;
+
+      if (analisarMenu && analisarDropdown) {
+        analisarMenu.addEventListener('mouseenter', () => {
+          clearTimeout(dropdownTimeout);
+          analisarDropdown.classList.add('show');
+        });
+
+        analisarMenu.addEventListener('mouseleave', () => {
+          dropdownTimeout = setTimeout(() => {
+            analisarDropdown.classList.remove('show');
+          }, 200);
+        });
+
+        analisarDropdown.addEventListener('mouseenter', () => {
+          clearTimeout(dropdownTimeout);
+        });
+
+        analisarDropdown.addEventListener('mouseleave', () => {
+          dropdownTimeout = setTimeout(() => {
+            analisarDropdown.classList.remove('show');
+          }, 200);
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!analisarMenu.contains(e.target) && !analisarDropdown.contains(e.target)) {
+            analisarDropdown.classList.remove('show');
+          }
+        });
+      }
+
+      // Modal handlers
+      window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+          e.target.style.display = 'none';
+        }
+      });
+
+      // Carregar dados iniciais
+      carregarProspectos();
+    });
+
+    // Debounce para busca
+    let timeoutBusca;
+    function debounceCarregar() {
+      clearTimeout(timeoutBusca);
+      timeoutBusca = setTimeout(carregarProspectos, 400);
+    }
+  </script>
+</body>
+</html>

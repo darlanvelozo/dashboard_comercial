@@ -10,124 +10,135 @@ from .models import LeadProspecto, Prospecto, HistoricoContato, ConfiguracaoSist
 
 def dashboard_view(request):
     """View principal do dashboard"""
-    return render(request, 'vendas_web/dashboard.html')
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/new_dash.html', context)
+
+def dashboard1(request):
+    """View alternativa do dashboard - alias para dashboard_view"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/new_dash.html', context)
+
+def leads_view(request):
+    """View para a página de gerenciamento de leads"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/leads.html', context)
+
+def relatorio_leads_view(request):
+    """View para a página de relatórios de leads"""
+    # Por enquanto redireciona para a página de leads
+    # Você pode criar um template específico para relatórios depois
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/leads.html', context)
+
+def vendas_view(request):
+    """View para a página de gerenciamento de vendas (prospectos)"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/vendas.html', context)
 
 
 def dashboard_data(request):
     """API para dados principais do dashboard"""
     try:
-        # Estatísticas gerais
-        total_leads = LeadProspecto.objects.filter(ativo=True).count()
-        total_prospectos = Prospecto.objects.count()
-        
-        # Leads de hoje
-        hoje = timezone.now().date()
-        leads_hoje = LeadProspecto.objects.filter(
-            data_cadastro__date=hoje,
-            ativo=True
+        # Cálculo das métricas conforme especificação:
+        # 1. ATENDIMENTOS = Histórico de contatos finalizados
+        atendimentos = HistoricoContato.objects.filter(
+            status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada']
         ).count()
         
-        # Valor total
-        valor_total = LeadProspecto.objects.filter(
-            ativo=True
-        ).aggregate(total=Sum('valor'))['total'] or 0
+        # 2. LEADS = Quantidade de LeadProspecto ativos
+        leads = LeadProspecto.objects.filter(ativo=True).count()
         
-        # Métricas do funil de vendas - HOJE
-        insights_hoje = HistoricoContato.get_funil_insights(
-            data_inicio=timezone.now().replace(hour=0, minute=0, second=0, microsecond=0),
-            data_fim=timezone.now()
-        )
+        # 3. PROSPECTOS = Quantidade de Prospectos
+        prospectos = Prospecto.objects.count()
         
-        # Métricas do funil de vendas - SEMANA ATUAL
-        inicio_semana = timezone.now().date() - timedelta(days=timezone.now().weekday())
-        insights_semana = HistoricoContato.get_funil_insights(
-            data_inicio=timezone.make_aware(datetime.combine(inicio_semana, datetime.min.time())),
-            data_fim=timezone.now()
-        )
+        # 4. VENDAS = Prospectos com status 'validacao_aprovada'
+        vendas = Prospecto.objects.filter(status='validacao_aprovada').count()
         
-        # Métricas do funil de vendas - MÊS ATUAL
-        inicio_mes = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        insights_mes = HistoricoContato.get_funil_insights(
-            data_inicio=inicio_mes,
-            data_fim=timezone.now()
-        )
+        # Calcular métricas do período anterior para comparação (últimos 30 dias vs 30 dias anteriores)
+        hoje = timezone.now()
+        inicio_periodo_atual = hoje - timedelta(days=30)
+        inicio_periodo_anterior = hoje - timedelta(days=60)
+        fim_periodo_anterior = hoje - timedelta(days=30)
         
-        # Métricas de performance
-        prospectos_erro = Prospecto.objects.filter(status='erro').count()
-        
-        # Tempo médio de processamento
-        tempo_medio = Prospecto.objects.filter(
-            tempo_processamento__isnull=False
-        ).aggregate(media=Avg('tempo_processamento'))['media'] or 0
-        
-        # Valor médio por lead
-        media_valor = LeadProspecto.objects.filter(
-            ativo=True,
-            valor__gt=0
-        ).aggregate(media=Avg('valor'))['media'] or 0
-        
-        # Leads com valor
-        leads_com_valor = LeadProspecto.objects.filter(
-            ativo=True,
-            valor__gt=0
+        # Métricas do período anterior
+        atendimentos_anterior = HistoricoContato.objects.filter(
+            status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada'],
+            data_hora_contato__gte=inicio_periodo_anterior,
+            data_hora_contato__lt=fim_periodo_anterior
         ).count()
+        
+        leads_anterior = LeadProspecto.objects.filter(
+            ativo=True,
+            data_cadastro__gte=inicio_periodo_anterior,
+            data_cadastro__lt=fim_periodo_anterior
+        ).count()
+        
+        prospectos_anterior = Prospecto.objects.filter(
+            data_criacao__gte=inicio_periodo_anterior,
+            data_criacao__lt=fim_periodo_anterior
+        ).count()
+        
+        vendas_anterior = Prospecto.objects.filter(
+            status='validacao_aprovada',
+            data_criacao__gte=inicio_periodo_anterior,
+            data_criacao__lt=fim_periodo_anterior
+        ).count()
+        
+        # Calcular diferenças e variações percentuais
+        def calcular_variacao(atual, anterior):
+            if anterior == 0:
+                if atual > 0:
+                    return "+100.0%", atual
+                else:
+                    return "0.0%", 0
+            else:
+                variacao = ((atual - anterior) / anterior) * 100
+                sinal = "+" if variacao >= 0 else ""
+                return f"{sinal}{variacao:.1f}%", atual - anterior
+        
+        atendimentos_variacao, atendimentos_diff = calcular_variacao(atendimentos, atendimentos_anterior)
+        leads_variacao, leads_diff = calcular_variacao(leads, leads_anterior)
+        prospectos_variacao, prospectos_diff = calcular_variacao(prospectos, prospectos_anterior)
+        vendas_variacao, vendas_diff = calcular_variacao(vendas, vendas_anterior)
+        
+        # Calcular taxas de conversão entre as etapas
+        taxa_atendimento_lead = f"{(leads/atendimentos*100):.2f}%" if atendimentos > 0 else "0.00%"
+        taxa_lead_prospecto = f"{(prospectos/leads*100):.2f}%" if leads > 0 else "0.00%"
+        taxa_prospecto_venda = f"{(vendas/prospectos*100):.2f}%" if prospectos > 0 else "0.00%"
         
         data = {
             'stats': {
-                # Métricas gerais
-                'totalLeads': total_leads,
-                'totalProspectos': total_prospectos,
-                'leadsHoje': leads_hoje,
-                'valorTotal': f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                'prospectosErro': prospectos_erro,
-                'tempoMedio': f"{tempo_medio:.1f}s",
-                'mediaValor': f"R$ {media_valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                'leadsComValor': leads_com_valor,
+                # Métricas principais conforme especificação
+                'atendimentos': atendimentos,
+                'atendimentos_variacao': atendimentos_variacao,
+                'atendimentos_diff': atendimentos_diff,
                 
-                # Funil de vendas - HOJE
-                'funil_hoje': {
-                    'total_contatos': insights_hoje['total_contatos'],
-                    'fluxos_inicializados': insights_hoje['fluxos_inicializados'],
-                    'fluxos_finalizados': insights_hoje['fluxos_finalizados'],
-                    'transferidos_humano': insights_hoje['transferidos_humano'],
-                    'convertidos_lead': insights_hoje['convertidos_lead'],
-                    'vendas_confirmadas': insights_hoje['vendas_confirmadas'],
-                    'valor_total_vendas': f"R$ {insights_hoje['valor_total_vendas']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                    'taxa_finalizacao': f"{insights_hoje['taxa_finalizacao']:.1f}%",
-                    'taxa_conversao_venda': f"{insights_hoje['taxa_conversao_venda']:.1f}%",
-                    'taxa_conversao_geral': f"{insights_hoje['taxa_conversao_geral']:.1f}%",
-                    'abandonos': insights_hoje['abandonos']
-                },
+                'leads': leads,
+                'leads_variacao': leads_variacao,
+                'leads_diff': leads_diff,
                 
-                # Funil de vendas - SEMANA
-                'funil_semana': {
-                    'total_contatos': insights_semana['total_contatos'],
-                    'fluxos_inicializados': insights_semana['fluxos_inicializados'],
-                    'fluxos_finalizados': insights_semana['fluxos_finalizados'],
-                    'transferidos_humano': insights_semana['transferidos_humano'],
-                    'convertidos_lead': insights_semana['convertidos_lead'],
-                    'vendas_confirmadas': insights_semana['vendas_confirmadas'],
-                    'valor_total_vendas': f"R$ {insights_semana['valor_total_vendas']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                    'taxa_finalizacao': f"{insights_semana['taxa_finalizacao']:.1f}%",
-                    'taxa_conversao_venda': f"{insights_semana['taxa_conversao_venda']:.1f}%",
-                    'taxa_conversao_geral': f"{insights_semana['taxa_conversao_geral']:.1f}%",
-                    'abandonos': insights_semana['abandonos']
-                },
+                'prospectos': prospectos,
+                'prospectos_variacao': prospectos_variacao,
+                'prospectos_diff': prospectos_diff,
                 
-                # Funil de vendas - MÊS
-                'funil_mes': {
-                    'total_contatos': insights_mes['total_contatos'],
-                    'fluxos_inicializados': insights_mes['fluxos_inicializados'],
-                    'fluxos_finalizados': insights_mes['fluxos_finalizados'],
-                    'transferidos_humano': insights_mes['transferidos_humano'],
-                    'convertidos_lead': insights_mes['convertidos_lead'],
-                    'vendas_confirmadas': insights_mes['vendas_confirmadas'],
-                    'valor_total_vendas': f"R$ {insights_mes['valor_total_vendas']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                    'taxa_finalizacao': f"{insights_mes['taxa_finalizacao']:.1f}%",
-                    'taxa_conversao_venda': f"{insights_mes['taxa_conversao_venda']:.1f}%",
-                    'taxa_conversao_geral': f"{insights_mes['taxa_conversao_geral']:.1f}%",
-                    'abandonos': insights_mes['abandonos']
-                }
+                'vendas': vendas,
+                'vendas_variacao': vendas_variacao,
+                'vendas_diff': vendas_diff,
+                
+                # Taxas de conversão para as setas
+                'taxa_atendimento_lead': taxa_atendimento_lead,
+                'taxa_lead_prospecto': taxa_lead_prospecto,
+                'taxa_prospecto_venda': taxa_prospecto_venda
             }
         }
         
@@ -138,129 +149,64 @@ def dashboard_data(request):
 
 
 def dashboard_charts_data(request):
-    """API para dados dos gráficos"""
+    """API para dados dos gráficos - Evolução dos últimos 7 dias"""
     try:
-        # Status dos prospectos
-        status_prospectos = Prospecto.objects.values('status').annotate(
-            count=Count('id')
-        ).order_by('status')
+        # Função auxiliar para gerar dados dos últimos 7 dias
+        def gerar_ultimos_7_dias(query_func):
+            dados = []
+            for i in range(7):
+                data = timezone.now().date() - timedelta(days=i)
+                count = query_func(data)
+                dados.append({
+                    'date': data.strftime('%d/%m'),
+                    'count': count
+                })
+            dados.reverse()
+            return dados
         
-        # Leads dos últimos 7 dias
-        ultimos_7_dias = []
-        for i in range(7):
-            data = timezone.now().date() - timedelta(days=i)
-            count = LeadProspecto.objects.filter(
+        # 1. ATENDIMENTOS dos últimos 7 dias (contatos finalizados)
+        def count_atendimentos(data):
+            return HistoricoContato.objects.filter(
+                data_hora_contato__date=data,
+                status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada']
+            ).count()
+        
+        atendimentosUltimos7Dias = gerar_ultimos_7_dias(count_atendimentos)
+        
+        # 2. LEADS dos últimos 7 dias
+        def count_leads(data):
+            return LeadProspecto.objects.filter(
                 data_cadastro__date=data,
                 ativo=True
             ).count()
-            ultimos_7_dias.append({
-                'date': data.strftime('%d/%m'),
-                'count': count
-            })
-        ultimos_7_dias.reverse()
         
-        # Status dos contatos
-        status_contatos = HistoricoContato.objects.values('status').annotate(
-            count=Count('id')
-        ).order_by('status')
+        leadsUltimos7Dias = gerar_ultimos_7_dias(count_leads)
         
-        # Contatos por hora (últimas 24h)
-        contatos_por_hora = []
-        agora = timezone.now()
-        for i in range(24):
-            hora_inicio = (agora - timedelta(hours=i+1)).replace(minute=0, second=0, microsecond=0)
-            hora_fim = hora_inicio + timedelta(hours=1)
-            count = HistoricoContato.objects.filter(
-                data_hora_contato__gte=hora_inicio,
-                data_hora_contato__lt=hora_fim
+        # 3. PROSPECTOS dos últimos 7 dias
+        def count_prospectos(data):
+            return Prospecto.objects.filter(
+                data_criacao__date=data
             ).count()
-            contatos_por_hora.append({
-                'hora': hora_inicio.strftime('%H:00'),
-                'count': count
-            })
-        contatos_por_hora.reverse()
         
-        # Contatos por dia (últimos 7 dias)
-        contatos_por_dia = []
-        for i in range(7):
-            data = timezone.now().date() - timedelta(days=i)
-            count = HistoricoContato.objects.filter(
-                data_hora_contato__date=data
+        prospectosUltimos7Dias = gerar_ultimos_7_dias(count_prospectos)
+        
+        # 4. VENDAS dos últimos 7 dias
+        def count_vendas(data):
+            return HistoricoContato.objects.filter(
+                data_conversao_venda__date=data,
+                converteu_venda=True
             ).count()
-            contatos_por_dia.append({
-                'date': data.strftime('%d/%m'),
-                'count': count
-            })
-        contatos_por_dia.reverse()
         
-        # FUNIL DE VENDAS - Últimos 7 dias
-        funil_7_dias = []
-        for i in range(7):
-            data_inicio = timezone.now().date() - timedelta(days=i)
-            data_fim = data_inicio + timedelta(days=1)
-            
-            insights_dia = HistoricoContato.get_funil_insights(
-                data_inicio=timezone.make_aware(datetime.combine(data_inicio, datetime.min.time())),
-                data_fim=timezone.make_aware(datetime.combine(data_fim, datetime.min.time()))
-            )
-            
-            funil_7_dias.append({
-                'date': data_inicio.strftime('%d/%m'),
-                'fluxos_inicializados': insights_dia['fluxos_inicializados'],
-                'fluxos_finalizados': insights_dia['fluxos_finalizados'],
-                'transferidos_humano': insights_dia['transferidos_humano'],
-                'convertidos_lead': insights_dia['convertidos_lead'],
-                'vendas_confirmadas': insights_dia['vendas_confirmadas'],
-                'abandonos': insights_dia['abandonos'],
-                'taxa_conversao_geral': round(insights_dia['taxa_conversao_geral'], 1)
-            })
-        funil_7_dias.reverse()
-        
-        # Gráfico de conversão por origem
-        conversao_por_origem = []
-        for origem_choice in LeadProspecto.ORIGEM_CHOICES:
-            origem_value, origem_label = origem_choice
-            
-            # Contatos desta origem
-            contatos_origem = HistoricoContato.objects.filter(origem_contato=origem_value)
-            total_contatos = contatos_origem.count()
-            
-            if total_contatos > 0:
-                vendas_confirmadas = contatos_origem.filter(converteu_venda=True).count()
-                taxa_conversao = (vendas_confirmadas / total_contatos) * 100
-                
-                conversao_por_origem.append({
-                    'origem': origem_label,
-                    'total_contatos': total_contatos,
-                    'vendas_confirmadas': vendas_confirmadas,
-                    'taxa_conversao': round(taxa_conversao, 1)
-                })
-        
-        # Status de contato agrupados por categoria
-        status_agrupados = {
-            'Inicializados': HistoricoContato.objects.filter(status='fluxo_inicializado').count(),
-            'Finalizados': HistoricoContato.objects.filter(status='fluxo_finalizado').count(),
-            'Transferidos': HistoricoContato.objects.filter(status='transferido_humano').count(),
-            'Convertidos': HistoricoContato.objects.filter(converteu_lead=True).count(),
-            'Vendas': HistoricoContato.objects.filter(converteu_venda=True).count(),
-            'Abandonos': HistoricoContato.objects.filter(
-                status__in=['abandonou_fluxo', 'desligou', 'nao_atendeu', 'chamada_perdida']
-            ).count()
-        }
+        vendasUltimos7Dias = gerar_ultimos_7_dias(count_vendas)
         
         data = {
-            'statusProspectos': list(status_prospectos),
-            'leadsUltimos7Dias': ultimos_7_dias,
-            'statusContatos': list(status_contatos),
-            'contatosPorHora': contatos_por_hora,
-            'contatosPorDia': contatos_por_dia,
+            # Dados para o gráfico de tendências (padrão será LEADS)
+            'leadsUltimos7Dias': leadsUltimos7Dias,
             
-            # Novos gráficos do funil
-            'funilVendas7Dias': funil_7_dias,
-            'conversaoPorOrigem': conversao_por_origem,
-            'statusAgrupados': [
-                {'status': k, 'count': v} for k, v in status_agrupados.items()
-            ]
+            # Dados para troca dinâmica no frontend
+            'atendimentosUltimos7Dias': atendimentosUltimos7Dias,
+            'prospectosUltimos7Dias': prospectosUltimos7Dias,
+            'vendasUltimos7Dias': vendasUltimos7Dias
         }
         
         return JsonResponse(data)
@@ -426,15 +372,29 @@ def dashboard_prospectos_data(request):
         
         prospectos_data = []
         for prospecto in prospectos:
+            lead_data = None
+            if prospecto.lead:
+                lead_data = {
+                    'id': prospecto.lead.id,
+                    'nome_razaosocial': prospecto.lead.nome_razaosocial,
+                    'email': prospecto.lead.email,
+                    'telefone': prospecto.lead.telefone,
+                    'empresa': prospecto.lead.empresa,
+                    'valor': f"R$ {prospecto.lead.valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if prospecto.lead.valor else 'R$ 0,00'
+                }
+            
             prospectos_data.append({
                 'id': prospecto.id,
                 'nome_prospecto': prospecto.nome_prospecto,
-                'lead_relacionado': prospecto.lead.nome_razaosocial if prospecto.lead else None,
+                'lead': lead_data,
                 'id_prospecto_hubsoft': prospecto.id_prospecto_hubsoft or '-',
-                'status': prospecto.get_status_display(),
+                'status': prospecto.status,  # Status raw para o frontend
+                'status_display': prospecto.get_status_display(),
                 'prioridade': prospecto.prioridade,
+                'score_conversao': float(prospecto.score_conversao) if prospecto.score_conversao else None,
                 'data_criacao': prospecto.data_criacao.strftime('%d/%m/%Y %H:%M'),
                 'data_processamento': prospecto.data_processamento.strftime('%d/%m/%Y %H:%M') if prospecto.data_processamento else '-',
+                # Campos técnicos (apenas para admin/debug)
                 'tentativas_processamento': prospecto.tentativas_processamento,
                 'tempo_processamento': prospecto.get_tempo_processamento_formatado(),
                 'erro_processamento': prospecto.erro_processamento[:50] + '...' if prospecto.erro_processamento and len(prospecto.erro_processamento) > 50 else (prospecto.erro_processamento or '-'),
@@ -670,3 +630,285 @@ def dashboard_contato_historico(request, telefone):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+def dashboard_ultimas_conversoes(request):
+    """API para últimas conversões de leads"""
+    try:
+        # Buscar últimos leads cadastrados (conversões)
+        limite = int(request.GET.get('limite', 6))  # Padrão 6 como no template
+        
+        ultimos_leads = LeadProspecto.objects.filter(
+            ativo=True
+        ).order_by('-data_cadastro')[:limite]
+        
+        conversoes = []
+        for lead in ultimos_leads:
+            conversoes.append({
+                'nome': lead.nome_razaosocial,
+                'empresa': lead.empresa or '-',
+                'origem': lead.get_origem_display(),
+                'data_cadastro': lead.data_cadastro.strftime('%d/%m/%Y às %H:%M'),
+                'valor': lead.get_valor_formatado(),
+                'telefone': lead.telefone,
+                'email': lead.email or '-',
+                'status': lead.get_status_api_display()
+            })
+        
+        data = {
+            'conversoes': conversoes
+        }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def aprovar_venda_api(request):
+    """API para aprovar uma venda"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        prospecto_id = data.get('prospecto_id')
+        observacoes = data.get('observacoes', '')
+        
+        if not prospecto_id:
+            return JsonResponse({'error': 'ID do prospecto é obrigatório'}, status=400)
+        
+        if not observacoes.strip():
+            return JsonResponse({'error': 'Observações da validação são obrigatórias'}, status=400)
+        
+        # Buscar prospecto
+        prospecto = Prospecto.objects.get(id=prospecto_id)
+        
+        # Verificar se pode ser aprovado
+        if prospecto.status not in ['processado', 'aguardando_validacao']:
+            return JsonResponse({'error': 'Prospecto não pode ser aprovado neste status'}, status=400)
+        
+        # Atualizar status
+        prospecto.status = 'validacao_aprovada'
+        prospecto.save()
+        
+        # Criar registro de validação (pode adicionar uma tabela específica depois)
+        # Por enquanto, armazenar nos dados de processamento
+        usuario_validacao = f"{request.user.username}" if request.user.is_authenticated else "Sistema"
+        if request.user.is_authenticated and (request.user.first_name or request.user.last_name):
+            usuario_validacao = f"{request.user.first_name} {request.user.last_name}".strip()
+        
+        validacao_data = {
+            'observacoes': observacoes,
+            'data_validacao': timezone.now().isoformat(),
+            'status_validacao': 'aprovada',
+            'usuario_validacao': usuario_validacao
+        }
+        
+        if prospecto.resultado_processamento:
+            prospecto.resultado_processamento.update(validacao_data)
+        else:
+            prospecto.resultado_processamento = validacao_data
+        
+        prospecto.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Venda aprovada com sucesso',
+            'prospecto_id': prospecto.id,
+            'novo_status': prospecto.status
+        })
+        
+    except Prospecto.DoesNotExist:
+        return JsonResponse({'error': 'Prospecto não encontrado'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Dados JSON inválidos'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Erro interno: {str(e)}'}, status=500)
+
+
+def rejeitar_venda_api(request):
+    """API para rejeitar uma venda"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        prospecto_id = data.get('prospecto_id')
+        motivo_rejeicao = data.get('motivo_rejeicao', '')
+        
+        if not prospecto_id:
+            return JsonResponse({'error': 'ID do prospecto é obrigatório'}, status=400)
+        
+        if not motivo_rejeicao.strip():
+            return JsonResponse({'error': 'Motivo da rejeição é obrigatório'}, status=400)
+        
+        # Buscar prospecto
+        prospecto = Prospecto.objects.get(id=prospecto_id)
+        
+        # Verificar se pode ser rejeitado
+        if prospecto.status not in ['processado', 'aguardando_validacao']:
+            return JsonResponse({'error': 'Prospecto não pode ser rejeitado neste status'}, status=400)
+        
+        # Atualizar status
+        prospecto.status = 'validacao_rejeitada'
+        prospecto.save()
+        
+        # Criar registro de rejeição
+        usuario_validacao = f"{request.user.username}" if request.user.is_authenticated else "Sistema"
+        if request.user.is_authenticated and (request.user.first_name or request.user.last_name):
+            usuario_validacao = f"{request.user.first_name} {request.user.last_name}".strip()
+        
+        rejeicao_data = {
+            'motivo_rejeicao': motivo_rejeicao,
+            'data_validacao': timezone.now().isoformat(),
+            'status_validacao': 'rejeitada',
+            'usuario_validacao': usuario_validacao
+        }
+        
+        if prospecto.resultado_processamento:
+            prospecto.resultado_processamento.update(rejeicao_data)
+        else:
+            prospecto.resultado_processamento = rejeicao_data
+        
+        prospecto.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Venda rejeitada',
+            'prospecto_id': prospecto.id,
+            'novo_status': prospecto.status
+        })
+        
+    except Prospecto.DoesNotExist:
+        return JsonResponse({'error': 'Prospecto não encontrado'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Dados JSON inválidos'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Erro interno: {str(e)}'}, status=500)
+
+
+def historico_contatos_api(request):
+    """API para buscar histórico de contatos por lead ID ou telefone"""
+    try:
+        lead_id = request.GET.get('lead_id')
+        prospecto_id = request.GET.get('prospecto_id')
+        telefone = request.GET.get('telefone')
+        
+        if not lead_id and not prospecto_id and not telefone:
+            return JsonResponse({'error': 'É necessário fornecer lead_id, prospecto_id ou telefone'}, status=400)
+        
+        historicos_query = HistoricoContato.objects.select_related('lead')
+        
+        # Buscar por lead_id
+        if lead_id:
+            try:
+                lead = LeadProspecto.objects.get(id=lead_id)
+                historicos_query = historicos_query.filter(
+                    Q(lead_id=lead_id) | Q(telefone=lead.telefone)
+                )
+            except LeadProspecto.DoesNotExist:
+                return JsonResponse({'error': 'Lead não encontrado'}, status=404)
+        
+        # Buscar por prospecto_id
+        elif prospecto_id:
+            try:
+                prospecto = Prospecto.objects.get(id=prospecto_id)
+                if prospecto.lead:
+                    historicos_query = historicos_query.filter(
+                        Q(lead_id=prospecto.lead.id) | Q(telefone=prospecto.lead.telefone)
+                    )
+                else:
+                    # Se o prospecto não tem lead, buscar por nome semelhante (se houver telefone)
+                    return JsonResponse({'historicos': [], 'total': 0, 'info': 'Prospecto sem lead associado'})
+            except Prospecto.DoesNotExist:
+                return JsonResponse({'error': 'Prospecto não encontrado'}, status=404)
+        
+        # Buscar por telefone
+        elif telefone:
+            historicos_query = historicos_query.filter(telefone=telefone)
+        
+        # Ordenar por data mais recente
+        historicos = historicos_query.order_by('-data_hora_contato')[:50]  # Limitar a 50 registros mais recentes
+        
+        historicos_data = []
+        for historico in historicos:
+            # Formatar duração
+            duracao_formatada = 'N/A'
+            if historico.duracao_segundos:
+                minutos = historico.duracao_segundos // 60
+                segundos = historico.duracao_segundos % 60
+                duracao_formatada = f"{minutos}m {segundos}s" if minutos > 0 else f"{segundos}s"
+            
+            # Status formatado
+            status_info = {
+                'status': historico.status,
+                'display': historico.get_status_display(),
+                'categoria': get_status_categoria(historico.status)
+            }
+            
+            historico_item = {
+                'id': historico.id,
+                'data_hora': historico.data_hora_contato.strftime('%d/%m/%Y %H:%M:%S'),
+                'status': status_info,
+                'telefone': historico.telefone,
+                'nome_contato': historico.nome_contato or 'Não identificado',
+                'duracao': duracao_formatada,
+                'duracao_segundos': historico.duracao_segundos,
+                'transcricao': historico.transcricao[:200] + '...' if historico.transcricao and len(historico.transcricao) > 200 else (historico.transcricao or ''),
+                'observacoes': historico.observacoes or '',
+                'converteu_lead': historico.converteu_lead,
+                'converteu_venda': historico.converteu_venda,
+                'lead': {
+                    'id': historico.lead.id,
+                    'nome': historico.lead.nome_razaosocial,
+                    'email': historico.lead.email,
+                    'empresa': historico.lead.empresa
+                } if historico.lead else None
+            }
+            
+            historicos_data.append(historico_item)
+        
+        # Estatísticas do histórico
+        total_contatos = len(historicos_data)
+        contatos_convertidos = sum(1 for h in historicos_data if h['converteu_lead'])
+        vendas_convertidas = sum(1 for h in historicos_data if h['converteu_venda'])
+        
+        data = {
+            'historicos': historicos_data,
+            'total': total_contatos,
+            'estatisticas': {
+                'total_contatos': total_contatos,
+                'contatos_convertidos': contatos_convertidos,
+                'vendas_convertidas': vendas_convertidas,
+                'taxa_conversao_lead': (contatos_convertidos / total_contatos * 100) if total_contatos > 0 else 0,
+                'taxa_conversao_venda': (vendas_convertidas / total_contatos * 100) if total_contatos > 0 else 0
+            }
+        }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        return JsonResponse({'error': f'Erro interno: {str(e)}'}, status=500)
+
+
+def get_status_categoria(status):
+    """Categoriza o status para facilitar a exibição"""
+    categorias = {
+        'fluxo_inicializado': 'inicio',
+        'fluxo_finalizado': 'sucesso',
+        'transferido_humano': 'transferencia',
+        'convertido_lead': 'conversao',
+        'venda_confirmada': 'venda',
+        'chamada_perdida': 'problema',
+        'ocupado': 'problema',
+        'desligou': 'problema',
+        'nao_atendeu': 'problema',
+        'erro_sistema': 'erro',
+        'timeout': 'erro'
+    }
+    return categorias.get(status, 'outros')
