@@ -106,6 +106,16 @@ class LeadProspecto(models.Model):
         help_text="Status do processamento na API"
     )
     
+    # Identificador no Hubsoft para cruzamento automático com Prospecto
+    id_hubsoft = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="ID Hubsoft",
+        help_text="Identificador do lead no Hubsoft para relacionar automaticamente com prospectos",
+        db_index=True,
+    )
+    
     # Campos adicionais para completar o modelo
     cpf_cnpj = models.CharField(
         max_length=18,
@@ -228,6 +238,7 @@ class LeadProspecto(models.Model):
             models.Index(fields=['data_cadastro']),
             models.Index(fields=['status_api']),
             models.Index(fields=['origem']),
+            models.Index(fields=['id_hubsoft']),
             # Novos índices para campos adicionados
             models.Index(fields=['canal_entrada']),
             models.Index(fields=['tipo_entrada']),
@@ -1112,3 +1123,6 @@ class LogSistema(models.Model):
     
     def __str__(self):
         return f"{self.nivel} - {self.modulo} - {self.data_criacao.strftime('%d/%m/%Y %H:%M')}"
+
+# Registrar sinais mesmo se o AppConfig não estiver referenciado diretamente em INSTALLED_APPS
+from . import signals  # noqa: E402,F401

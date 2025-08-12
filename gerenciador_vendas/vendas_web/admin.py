@@ -16,6 +16,7 @@ class LeadProspectoAdmin(admin.ModelAdmin):
         'nome_razaosocial', 
         'email', 
         'telefone', 
+        'id_hubsoft',
         'origem', 
         'get_valor_formatado', 
         'status_api', 
@@ -34,7 +35,8 @@ class LeadProspectoAdmin(admin.ModelAdmin):
         'email', 
         'telefone', 
         'empresa', 
-        'cpf_cnpj'
+        'cpf_cnpj',
+        'id_hubsoft'
     ]
     readonly_fields = [
         'data_cadastro', 
@@ -47,7 +49,8 @@ class LeadProspectoAdmin(admin.ModelAdmin):
                 'nome_razaosocial', 
                 'email', 
                 'telefone', 
-                'empresa'
+                'empresa',
+                'id_hubsoft'
             )
         }),
         ('Documentos e Localização', {

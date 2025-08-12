@@ -268,7 +268,8 @@ def dashboard_leads_data(request):
                     Q(email__icontains=search) |
                     Q(telefone__icontains=search) |
                     Q(empresa__icontains=search) |
-                    Q(cpf_cnpj__icontains=search)
+                    Q(cpf_cnpj__icontains=search) |
+                    Q(id_hubsoft__icontains=search)
                 )
             
             if origem_filter:
@@ -293,6 +294,7 @@ def dashboard_leads_data(request):
                 'nome_razaosocial': lead.nome_razaosocial,
                 'email': lead.email,
                 'telefone': lead.telefone,
+                'id_hubsoft': lead.id_hubsoft,
                 'valor': lead.get_valor_formatado(),
                 'empresa': lead.empresa or '-',
                 'origem': lead.get_origem_display(),
