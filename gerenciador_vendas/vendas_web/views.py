@@ -8,6 +8,254 @@ import json
 from .models import LeadProspecto, Prospecto, HistoricoContato, ConfiguracaoSistema, LogSistema
 
 
+# Utilitários simples para as APIs de registro/atualização
+def _parse_json_request(request):
+    try:
+        body = request.body.decode('utf-8') if isinstance(request.body, (bytes, bytearray)) else request.body
+        return json.loads(body or '{}')
+    except Exception:
+        return None
+
+
+def _model_field_names(model_cls):
+    # Campos concretos (exclui M2M e reversos)
+    field_names = []
+    for f in model_cls._meta.get_fields():
+        if getattr(f, 'many_to_many', False) or getattr(f, 'one_to_many', False):
+            continue
+        if hasattr(f, 'attname'):
+            field_names.append(f.name)
+    return set(field_names)
+
+
+def _serialize_instance(instance):
+    from django.forms.models import model_to_dict
+    from decimal import Decimal
+    data = model_to_dict(instance)
+    for key, value in list(data.items()):
+        if isinstance(value, Decimal):
+            data[key] = float(value)
+        elif isinstance(value, datetime):
+            data[key] = value.isoformat()
+    # Campos DateTime auto que podem não estar em model_to_dict
+    for auto_dt in ['data_cadastro', 'data_atualizacao', 'data_criacao', 'data_processamento', 'data_inicio_processamento', 'data_fim_processamento', 'data_hora_contato', 'data_conversao_lead', 'data_conversao_venda']:
+        if hasattr(instance, auto_dt):
+            val = getattr(instance, auto_dt)
+            if isinstance(val, datetime):
+                data[auto_dt] = val.isoformat()
+    # Campos de choices: adiciona display quando existir
+    for display_field, getter in [
+        ('status_api_display', 'get_status_api_display'),
+        ('origem_display', 'get_origem_display'),
+        ('status_display', 'get_status_display'),
+        ('origem_contato_display', 'get_origem_contato_display')
+    ]:
+        if hasattr(instance, getter):
+            try:
+                data[display_field] = getattr(instance, getter)()
+            except Exception:
+                pass
+    return data
+
+
+def _resolve_fk(model_cls, field_name, value):
+    # Resolve ids para FKs simples quando o payload vem com inteiro
+    if value is None:
+        return None
+    if model_cls is Prospecto and field_name in ['lead', 'lead_id']:
+        return LeadProspecto.objects.get(id=value) if value else None
+    if model_cls is HistoricoContato and field_name in ['lead', 'lead_id']:
+        return LeadProspecto.objects.get(id=value) if value else None
+    return value
+
+
+def _apply_updates(instance, updates):
+    fields = _model_field_names(type(instance))
+    for key, value in updates.items():
+        if key in ['id', 'pk']:
+            continue
+        if key not in fields and not key.endswith('_id'):
+            continue
+        try:
+            resolved_value = _resolve_fk(type(instance), key, value)
+            setattr(instance, key, resolved_value)
+        except LeadProspecto.DoesNotExist:
+            raise ValueError('Lead relacionado não encontrado')
+    instance.save()
+    return instance
+
+
+@csrf_exempt
+def registrar_lead_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    data = _parse_json_request(request)
+    if data is None:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    required = ['nome_razaosocial', 'telefone']
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return JsonResponse({'error': f'Campos obrigatórios ausentes: {", ".join(missing)}'}, status=400)
+    try:
+        allowed = _model_field_names(LeadProspecto)
+        payload = {k: v for k, v in data.items() if k in allowed}
+        lead = LeadProspecto.objects.create(**payload)
+        return JsonResponse({'success': True, 'id': lead.id, 'lead': _serialize_instance(lead)}, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def atualizar_lead_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    data = _parse_json_request(request)
+    if data is None:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    termo = data.get('termo_busca')
+    busca = data.get('busca')
+    if not termo or busca is None:
+        return JsonResponse({'error': 'Parâmetros obrigatórios: termo_busca e busca'}, status=400)
+    try:
+        qs = LeadProspecto.objects.filter(**{termo: busca})
+    except Exception:
+        return JsonResponse({'error': 'termo_busca inválido para LeadProspecto'}, status=400)
+    count = qs.count()
+    if count == 0:
+        return JsonResponse({'error': 'Registro não encontrado'}, status=404)
+    if count > 1:
+        return JsonResponse({'error': f'Múltiplos registros encontrados ({count}). Refine a busca.'}, status=400)
+    lead = qs.first()
+    updates = {k: v for k, v in data.items() if k not in ['termo_busca', 'busca']}
+    if not updates:
+        return JsonResponse({'error': 'Nenhum campo para atualizar informado'}, status=400)
+    try:
+        _apply_updates(lead, updates)
+        return JsonResponse({'success': True, 'id': lead.id, 'lead': _serialize_instance(lead)})
+    except ValueError as ve:
+        return JsonResponse({'error': str(ve)}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def registrar_prospecto_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    data = _parse_json_request(request)
+    if data is None:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    required = ['nome_prospecto']
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return JsonResponse({'error': f'Campos obrigatórios ausentes: {", ".join(missing)}'}, status=400)
+    try:
+        allowed = _model_field_names(Prospecto)
+        payload = {k: v for k, v in data.items() if k in allowed}
+        # Resolver lead se vier como id simples
+        if 'lead' in data and isinstance(data['lead'], int):
+            payload['lead'] = LeadProspecto.objects.get(id=data['lead'])
+        if 'lead_id' in data and isinstance(data['lead_id'], int):
+            payload['lead_id'] = data['lead_id']
+        prospecto = Prospecto.objects.create(**payload)
+        return JsonResponse({'success': True, 'id': prospecto.id, 'prospecto': _serialize_instance(prospecto)}, status=201)
+    except LeadProspecto.DoesNotExist:
+        return JsonResponse({'error': 'Lead informado não encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def atualizar_prospecto_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    data = _parse_json_request(request)
+    if data is None:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    termo = data.get('termo_busca')
+    busca = data.get('busca')
+    if not termo or busca is None:
+        return JsonResponse({'error': 'Parâmetros obrigatórios: termo_busca e busca'}, status=400)
+    try:
+        qs = Prospecto.objects.filter(**{termo: busca})
+    except Exception:
+        return JsonResponse({'error': 'termo_busca inválido para Prospecto'}, status=400)
+    count = qs.count()
+    if count == 0:
+        return JsonResponse({'error': 'Registro não encontrado'}, status=404)
+    if count > 1:
+        return JsonResponse({'error': f'Múltiplos registros encontrados ({count}). Refine a busca.'}, status=400)
+    prospecto = qs.first()
+    updates = {k: v for k, v in data.items() if k not in ['termo_busca', 'busca']}
+    if not updates:
+        return JsonResponse({'error': 'Nenhum campo para atualizar informado'}, status=400)
+    try:
+        _apply_updates(prospecto, updates)
+        return JsonResponse({'success': True, 'id': prospecto.id, 'prospecto': _serialize_instance(prospecto)})
+    except ValueError as ve:
+        return JsonResponse({'error': str(ve)}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def registrar_historico_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    data = _parse_json_request(request)
+    if data is None:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    required = ['telefone', 'status']
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return JsonResponse({'error': f'Campos obrigatórios ausentes: {", ".join(missing)}'}, status=400)
+    try:
+        allowed = _model_field_names(HistoricoContato)
+        payload = {k: v for k, v in data.items() if k in allowed}
+        if 'lead' in data and isinstance(data['lead'], int):
+            payload['lead'] = LeadProspecto.objects.get(id=data['lead'])
+        if 'lead_id' in data and isinstance(data['lead_id'], int):
+            payload['lead_id'] = data['lead_id']
+        contato = HistoricoContato.objects.create(**payload)
+        return JsonResponse({'success': True, 'id': contato.id, 'historico': _serialize_instance(contato)}, status=201)
+    except LeadProspecto.DoesNotExist:
+        return JsonResponse({'error': 'Lead informado não encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def atualizar_historico_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    data = _parse_json_request(request)
+    if data is None:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    termo = data.get('termo_busca')
+    busca = data.get('busca')
+    if not termo or busca is None:
+        return JsonResponse({'error': 'Parâmetros obrigatórios: termo_busca e busca'}, status=400)
+    try:
+        qs = HistoricoContato.objects.filter(**{termo: busca})
+    except Exception:
+        return JsonResponse({'error': 'termo_busca inválido para Histórico de Contato'}, status=400)
+    count = qs.count()
+    if count == 0:
+        return JsonResponse({'error': 'Registro não encontrado'}, status=404)
+    if count > 1:
+        return JsonResponse({'error': f'Múltiplos registros encontrados ({count}). Refine a busca.'}, status=400)
+    contato = qs.first()
+    updates = {k: v for k, v in data.items() if k not in ['termo_busca', 'busca']}
+    if not updates:
+        return JsonResponse({'error': 'Nenhum campo para atualizar informado'}, status=400)
+    try:
+        _apply_updates(contato, updates)
+        return JsonResponse({'success': True, 'id': contato.id, 'historico': _serialize_instance(contato)})
+    except ValueError as ve:
+        return JsonResponse({'error': str(ve)}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
 def dashboard_view(request):
     """View principal do dashboard"""
     context = {

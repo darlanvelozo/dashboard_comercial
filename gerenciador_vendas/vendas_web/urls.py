@@ -34,5 +34,13 @@ urlpatterns = [
     # Rotas adicionais para navegação
     path('leads/', views.leads_view, name='leads'),
     path('vendas/', views.vendas_view, name='vendas'),
-    path('relatorio/leads/', views.relatorio_leads_view, name='relatorio_leads')
+    path('relatorio/leads/', views.relatorio_leads_view, name='relatorio_leads'),
+
+    # APIS simples de registro/update
+    path('api/leads/registrar/', views.registrar_lead_api, name='registrar_lead'),
+    path('api/leads/atualizar/', views.atualizar_lead_api, name='atualizar_lead'),
+    path('api/prospectos/registrar/', views.registrar_prospecto_api, name='registrar_prospecto'),
+    path('api/prospectos/atualizar/', views.atualizar_prospecto_api, name='atualizar_prospecto'),
+    path('api/historicos/registrar/', views.registrar_historico_api, name='registrar_historico'),
+    path('api/historicos/atualizar/', views.atualizar_historico_api, name='atualizar_historico')
 ]
