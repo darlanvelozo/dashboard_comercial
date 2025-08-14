@@ -42,5 +42,9 @@ urlpatterns = [
     path('api/prospectos/registrar/', views.registrar_prospecto_api, name='registrar_prospecto'),
     path('api/prospectos/atualizar/', views.atualizar_prospecto_api, name='atualizar_prospecto'),
     path('api/historicos/registrar/', views.registrar_historico_api, name='registrar_historico'),
-    path('api/historicos/atualizar/', views.atualizar_historico_api, name='atualizar_historico')
+    path('api/historicos/atualizar/', views.atualizar_historico_api, name='atualizar_historico'),
+
+    # APIs de consulta (GET)
+    path('api/consultar/leads/', views.consultar_leads_api, name='consultar_leads_api'),
+    path('api/consultar/historicos/', views.consultar_historicos_api, name='consultar_historicos_api'),
 ]

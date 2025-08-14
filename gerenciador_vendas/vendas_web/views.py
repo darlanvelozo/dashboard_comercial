@@ -31,11 +31,14 @@ def _model_field_names(model_cls):
 def _serialize_instance(instance):
     from django.forms.models import model_to_dict
     from decimal import Decimal
+    from datetime import date
     data = model_to_dict(instance)
     for key, value in list(data.items()):
         if isinstance(value, Decimal):
             data[key] = float(value)
         elif isinstance(value, datetime):
+            data[key] = value.isoformat()
+        elif isinstance(value, date):
             data[key] = value.isoformat()
     # Campos DateTime auto que podem não estar em model_to_dict
     for auto_dt in ['data_cadastro', 'data_atualizacao', 'data_criacao', 'data_processamento', 'data_inicio_processamento', 'data_fim_processamento', 'data_hora_contato', 'data_conversao_lead', 'data_conversao_venda']:
@@ -78,6 +81,25 @@ def _apply_updates(instance, updates):
             continue
         try:
             resolved_value = _resolve_fk(type(instance), key, value)
+            # Coerção básica para campos de data quando vier string
+            if key in fields and isinstance(resolved_value, str):
+                try:
+                    field_obj = type(instance)._meta.get_field(key)
+                    internal_type = getattr(field_obj, 'get_internal_type', lambda: '')()
+                    if internal_type == 'DateField':
+                        try:
+                            coerced = datetime.strptime(resolved_value, '%Y-%m-%d').date()
+                        except ValueError:
+                            coerced = datetime.fromisoformat(resolved_value).date()
+                        resolved_value = coerced
+                    elif internal_type == 'DateTimeField':
+                        try:
+                            coerced_dt = datetime.fromisoformat(resolved_value)
+                            resolved_value = coerced_dt
+                        except ValueError:
+                            pass
+                except Exception:
+                    pass
             setattr(instance, key, resolved_value)
         except LeadProspecto.DoesNotExist:
             raise ValueError('Lead relacionado não encontrado')
@@ -1162,3 +1184,211 @@ def get_status_categoria(status):
         'timeout': 'erro'
     }
     return categorias.get(status, 'outros')
+
+
+def _parse_bool(value):
+    if value is None:
+        return None
+    value_lower = str(value).strip().lower()
+    if value_lower in ['1', 'true', 't', 'sim', 'yes', 'y']:
+        return True
+    if value_lower in ['0', 'false', 'f', 'nao', 'não', 'no', 'n']:
+        return False
+    return None
+
+
+def _safe_ordering(ordering_param, allowed_fields):
+    if not ordering_param:
+        return None
+    raw = ordering_param.strip()
+    desc = raw.startswith('-')
+    field = raw[1:] if desc else raw
+    if field in allowed_fields:
+        return f"-{field}" if desc else field
+    return None
+
+
+def consultar_leads_api(request):
+    """API GET de consulta sobre LeadProspecto com filtros e paginação."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 20))
+        per_page = max(1, min(per_page, 100))
+
+        lead_id = request.GET.get('id')
+        search = request.GET.get('search')
+        origem = request.GET.get('origem')
+        status_api = request.GET.get('status_api')
+        ativo_param = request.GET.get('ativo')
+        data_inicio = request.GET.get('data_inicio')  # formato YYYY-MM-DD
+        data_fim = request.GET.get('data_fim')        # formato YYYY-MM-DD
+        ordering = request.GET.get('ordering')
+
+        qs = LeadProspecto.objects.all()
+
+        if lead_id:
+            qs = qs.filter(id=lead_id)
+        else:
+            if search:
+                qs = qs.filter(
+                    Q(nome_razaosocial__icontains=search) |
+                    Q(email__icontains=search) |
+                    Q(telefone__icontains=search) |
+                    Q(empresa__icontains=search) |
+                    Q(cpf_cnpj__icontains=search) |
+                    Q(id_hubsoft__icontains=search)
+                )
+
+            if origem:
+                qs = qs.filter(origem=origem)
+
+            if status_api:
+                qs = qs.filter(status_api=status_api)
+
+            ativo = _parse_bool(ativo_param)
+            if ativo is not None:
+                qs = qs.filter(ativo=ativo)
+
+            if data_inicio:
+                try:
+                    di = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                    qs = qs.filter(data_cadastro__date__gte=di)
+                except ValueError:
+                    pass
+
+            if data_fim:
+                try:
+                    df = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                    qs = qs.filter(data_cadastro__date__lte=df)
+                except ValueError:
+                    pass
+
+        allowed_order_fields = {'id', 'data_cadastro', 'data_atualizacao', 'nome_razaosocial', 'valor'}
+        order_by = _safe_ordering(ordering, allowed_order_fields) or '-data_cadastro'
+        qs = qs.order_by(order_by)
+
+        total = qs.count()
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = qs[start:end]
+
+        results = []
+        for item in items:
+            data = _serialize_instance(item)
+            # Enriquecimentos úteis
+            data['valor_formatado'] = item.get_valor_formatado()
+            data['origem_display'] = item.get_origem_display()
+            data['status_api_display'] = item.get_status_api_display()
+            results.append(data)
+
+        return JsonResponse({
+            'results': results,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page,
+            'ordering': order_by,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def consultar_historicos_api(request):
+    """API GET de consulta sobre HistoricoContato com filtros e paginação."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 20))
+        per_page = max(1, min(per_page, 100))
+
+        contato_id = request.GET.get('id')
+        telefone = request.GET.get('telefone')
+        lead_id = request.GET.get('lead_id')
+        status = request.GET.get('status')
+        sucesso_param = request.GET.get('sucesso')
+        conv_lead_param = request.GET.get('converteu_lead')
+        conv_venda_param = request.GET.get('converteu_venda')
+        data_inicio = request.GET.get('data_inicio')  # YYYY-MM-DD
+        data_fim = request.GET.get('data_fim')        # YYYY-MM-DD
+        ordering = request.GET.get('ordering')
+
+        qs = HistoricoContato.objects.select_related('lead')
+
+        if contato_id:
+            qs = qs.filter(id=contato_id)
+        else:
+            if telefone:
+                qs = qs.filter(telefone__icontains=telefone)
+
+            if lead_id:
+                qs = qs.filter(lead_id=lead_id)
+
+            if status:
+                qs = qs.filter(status=status)
+
+            sucesso = _parse_bool(sucesso_param)
+            if sucesso is not None:
+                qs = qs.filter(sucesso=sucesso)
+
+            converteu_lead = _parse_bool(conv_lead_param)
+            if converteu_lead is not None:
+                qs = qs.filter(converteu_lead=converteu_lead)
+
+            converteu_venda = _parse_bool(conv_venda_param)
+            if converteu_venda is not None:
+                qs = qs.filter(converteu_venda=converteu_venda)
+
+            if data_inicio:
+                try:
+                    di = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                    qs = qs.filter(data_hora_contato__date__gte=di)
+                except ValueError:
+                    pass
+
+            if data_fim:
+                try:
+                    df = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                    qs = qs.filter(data_hora_contato__date__lte=df)
+                except ValueError:
+                    pass
+
+        allowed_order_fields = {'id', 'data_hora_contato', 'telefone', 'status'}
+        order_by = _safe_ordering(ordering, allowed_order_fields) or '-data_hora_contato'
+        qs = qs.order_by(order_by)
+
+        total = qs.count()
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = qs[start:end]
+
+        results = []
+        for item in items:
+            data = _serialize_instance(item)
+            # Enriquecimentos úteis
+            data['status_display'] = item.get_status_display()
+            data['duracao_formatada'] = item.get_duracao_formatada()
+            data['valor_venda_formatado'] = item.get_valor_venda_formatado() if item.valor_venda else None
+            if item.lead:
+                data['lead_info'] = {
+                    'id': item.lead.id,
+                    'nome_razaosocial': item.lead.nome_razaosocial,
+                    'telefone': item.lead.telefone,
+                    'empresa': item.lead.empresa,
+                }
+            results.append(data)
+
+        return JsonResponse({
+            'results': results,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page,
+            'ordering': order_by,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

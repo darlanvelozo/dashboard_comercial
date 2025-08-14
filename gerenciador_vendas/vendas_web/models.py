@@ -132,6 +132,30 @@ class LeadProspecto(models.Model):
         help_text="Endereço completo do cliente"
     )
     
+    rua = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="Rua",
+        help_text="Logradouro do endereço"
+    )
+    
+    numero_residencia = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        verbose_name="Número da Residência",
+        help_text="Número do endereço"
+    )
+    
+    bairro = models.CharField(
+        max_length=120,
+        null=True,
+        blank=True,
+        verbose_name="Bairro",
+        help_text="Bairro do endereço"
+    )
+    
     cidade = models.CharField(
         max_length=100,
         null=True,
@@ -152,6 +176,34 @@ class LeadProspecto(models.Model):
         null=True,
         blank=True,
         verbose_name="CEP"
+    )
+
+    # Dados adicionais de relacionamento com RP/Comercial
+    id_plano_rp = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="ID Plano (RP)",
+        help_text="Identificador do plano no sistema RP"
+    )
+    
+    id_dia_vencimento = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="ID Dia de Vencimento",
+        help_text="Identificador do dia de vencimento no RP"
+    )
+    
+    id_vendedor_rp = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="ID Vendedor (RP)",
+        help_text="Identificador do vendedor no sistema RP"
+    )
+    
+    data_nascimento = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Nascimento"
     )
     
     observacoes = models.TextField(

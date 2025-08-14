@@ -1,0 +1,34 @@
+/* Acentos de cor e toques visuais leves para o Django Admin */
+:root {
+  --accent: #2ecc71;
+  --accent-dark: #27ae60;
+}
+
+#header {
+  background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+}
+
+#branding h1, #branding h1 a { color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.2); }
+
+.admin-header-actions { position: absolute; right: 20px; top: 10px; }
+.btn-admin {
+  display: inline-block;
+  background: #fff;
+  color: var(--accent-dark);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.btn-admin:hover { background: #f7f7f7; }
+
+.module h2, .module caption { color: var(--accent-dark); }
+.submit-row input.default { background: var(--accent); border-color: var(--accent-dark); }
+.submit-row input.default:hover { background: var(--accent-dark); }
+
+/* Badges inline */
+td.field-origem_badge, td.field-status_api_badge, td.field-ativo_badge {
+  vertical-align: middle;
+}
+
+

@@ -1,0 +1,13 @@
+bind = "unix:/run/gunicorn-gerenciador_vendas/gunicorn.sock"
+workers = 3
+threads = 2
+worker_class = "gthread"
+timeout = 120
+keepalive = 5
+graceful_timeout = 30
+max_requests = 1000
+max_requests_jitter = 100
+loglevel = "info"
+accesslog = "-"
+errorlog = "-"
+capture_output = True
