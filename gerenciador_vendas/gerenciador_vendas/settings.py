@@ -136,3 +136,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login
 LOGIN_URL = '/admin/login/'
+
+# Disable APPEND_SLASH for API endpoints to avoid POST redirect issues
+APPEND_SLASH = False

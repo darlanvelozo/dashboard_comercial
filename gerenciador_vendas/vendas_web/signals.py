@@ -33,3 +33,24 @@ def relate_lead_when_prospecto_has_hubsoft(sender, instance: Prospecto, created,
     if lead:
         # Evita recursão de signals usando update direto no queryset
         Prospecto.objects.filter(pk=instance.pk, lead__isnull=True).update(lead=lead)
+
+
+@receiver(post_save, sender=LeadProspecto)
+def relate_prospecto_when_lead_has_hubsoft(sender, instance: LeadProspecto, created, **kwargs):
+    """Quando um LeadProspecto com id_hubsoft é salvo (criado ou atualizado via API),
+    tenta relacionar com Prospecto que tenha o mesmo id_prospecto_hubsoft e não tenha lead.
+    """
+    id_hub = (instance.id_hubsoft or '').strip()
+    if not id_hub:
+        return
+
+    # Busca prospectos sem lead relacionado que tenham o mesmo id_hubsoft
+    prospectos_sem_lead = Prospecto.objects.filter(
+        id_prospecto_hubsoft=id_hub,
+        lead__isnull=True
+    )
+    
+    if prospectos_sem_lead.exists():
+        # Relaciona todos os prospectos encontrados com este lead
+        # Evita recursão de signals usando update direto no queryset
+        prospectos_sem_lead.update(lead=instance)

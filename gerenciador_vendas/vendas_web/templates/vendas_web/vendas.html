@@ -501,6 +501,7 @@
     const API_APROVAR_VENDA = '{% url "vendas_web:aprovar_venda" %}';
     const API_REJEITAR_VENDA = '{% url "vendas_web:rejeitar_venda" %}';
     const API_HISTORICO = '{% url "vendas_web:historico_contatos" %}';
+    const API_VERIFICAR_RELACIONAMENTOS = '{% url "vendas_web:verificar_relacionamentos" %}';
     let page = 1; 
     let search = ''; 
     let filtros = { 
@@ -539,6 +540,12 @@
 
     function mostrarNotificacao(mensagem, tipo = 'info') {
       console.log(`[${tipo.toUpperCase()}] ${mensagem}`);
+      
+      // Para relacionamentos automáticos, usar console apenas
+      if (tipo === 'sucesso' && mensagem.includes('relacionamentos criados automaticamente')) {
+        return; // Não mostrar popup para verificações automáticas
+      }
+      
       alert(mensagem);
     }
 
@@ -551,6 +558,39 @@
       const contador = document.getElementById('contadorChip');
       if (contador) {
         contador.textContent = `${total} registro(s)`;
+      }
+    }
+
+    // Função para verificar relacionamentos automaticamente
+    async function verificarRelacionamentos() {
+      try {
+        console.log('Verificando relacionamentos entre prospectos e leads...');
+        
+        const response = await fetch(API_VERIFICAR_RELACIONAMENTOS, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          if (data.relacionamentos_criados > 0) {
+            console.log(`✅ ${data.relacionamentos_criados} relacionamentos criados automaticamente`);
+            // Mostrar notificação discreta apenas se houver relacionamentos criados
+            mostrarNotificacao(`${data.relacionamentos_criados} relacionamentos criados automaticamente`, 'sucesso');
+          } else {
+            console.log('✅ Verificação concluída - todos os relacionamentos já estão corretos');
+          }
+        } else {
+          console.warn('Erro na verificação de relacionamentos:', data.error);
+        }
+        
+      } catch (error) {
+        console.warn('Erro ao verificar relacionamentos:', error);
+        // Não mostrar erro para o usuário, apenas logar
       }
     }
 
@@ -1282,7 +1322,10 @@
       });
 
       // Carregar dados iniciais
-      carregarProspectos();
+      // Primeiro verificar relacionamentos, depois carregar prospectos
+      verificarRelacionamentos().then(() => {
+        carregarProspectos();
+      });
     });
 
     // Debounce para busca

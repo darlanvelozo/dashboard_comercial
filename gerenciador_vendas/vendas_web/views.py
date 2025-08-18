@@ -5,10 +5,76 @@ from django.utils import timezone
 from django.db.models import Count, Sum, Avg, Q
 from datetime import datetime, timedelta
 import json
+import traceback
 from .models import LeadProspecto, Prospecto, HistoricoContato, ConfiguracaoSistema, LogSistema
 
 
 # Utilitários simples para as APIs de registro/atualização
+def _atualizar_resultado_processamento(prospecto, novos_dados):
+    """
+    Atualiza o resultado_processamento de um prospecto de forma segura
+    
+    Args:
+        prospecto: Instância do Prospecto
+        novos_dados: Dict com os dados a serem adicionados/atualizados
+    """
+    if prospecto.resultado_processamento:
+        # Se já existe, garantir que é um dict e atualizar
+        if isinstance(prospecto.resultado_processamento, dict):
+            prospecto.resultado_processamento.update(novos_dados)
+        else:
+            # Se é string, tentar fazer parse JSON ou criar novo dict
+            try:
+                import json
+                existing_data = json.loads(prospecto.resultado_processamento) if isinstance(prospecto.resultado_processamento, str) else {}
+                existing_data.update(novos_dados)
+                prospecto.resultado_processamento = existing_data
+            except (json.JSONDecodeError, TypeError):
+                prospecto.resultado_processamento = novos_dados
+    else:
+        prospecto.resultado_processamento = novos_dados
+
+
+def _criar_log_sistema(nivel, modulo, mensagem, dados_extras=None, request=None):
+    """
+    Cria um log no sistema
+    
+    Args:
+        nivel: Nível do log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        modulo: Módulo/função que gerou o log
+        mensagem: Mensagem do log
+        dados_extras: Dados JSON extras (opcional)
+        request: Request HTTP para extrair IP e usuário (opcional)
+    """
+    try:
+        ip = None
+        usuario = None
+        
+        if request:
+            # Extrair IP do request
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0].strip()
+            else:
+                ip = request.META.get('REMOTE_ADDR')
+            
+            # Extrair usuário se autenticado
+            if request.user.is_authenticated:
+                usuario = request.user.username
+        
+        LogSistema.objects.create(
+            nivel=nivel,
+            modulo=modulo,
+            mensagem=mensagem,
+            dados_extras=dados_extras,
+            usuario=usuario,
+            ip=ip
+        )
+    except Exception as e:
+        # Se falhar ao criar log, não interromper o fluxo principal
+        print(f"Erro ao criar log: {str(e)}")
+
+
 def _parse_json_request(request):
     try:
         body = request.body.decode('utf-8') if isinstance(request.body, (bytes, bytearray)) else request.body
@@ -87,17 +153,57 @@ def _apply_updates(instance, updates):
                     field_obj = type(instance)._meta.get_field(key)
                     internal_type = getattr(field_obj, 'get_internal_type', lambda: '')()
                     if internal_type == 'DateField':
-                        try:
-                            coerced = datetime.strptime(resolved_value, '%Y-%m-%d').date()
-                        except ValueError:
-                            coerced = datetime.fromisoformat(resolved_value).date()
+                        # Tentar múltiplos formatos de data
+                        date_formats = [
+                            '%Y-%m-%d',      # 2002-11-14 (ISO)
+                            '%d/%m/%Y',      # 14/11/2002 (BR)
+                            '%d-%m-%Y',      # 14-11-2002
+                            '%Y/%m/%d',      # 2002/11/14 (US)
+                            '%m/%d/%Y',      # 11/14/2002 (US)
+                        ]
+                        coerced = None
+                        for fmt in date_formats:
+                            try:
+                                coerced = datetime.strptime(resolved_value, fmt).date()
+                                break
+                            except ValueError:
+                                continue
+                        if coerced is None:
+                            # Última tentativa com fromisoformat
+                            try:
+                                coerced = datetime.fromisoformat(resolved_value).date()
+                            except ValueError:
+                                raise ValueError(f'Formato de data inválido para campo "{key}". Use DD/MM/YYYY ou YYYY-MM-DD')
                         resolved_value = coerced
                     elif internal_type == 'DateTimeField':
-                        try:
-                            coerced_dt = datetime.fromisoformat(resolved_value)
-                            resolved_value = coerced_dt
-                        except ValueError:
-                            pass
+                        # Tentar múltiplos formatos de datetime
+                        datetime_formats = [
+                            '%Y-%m-%d %H:%M:%S',      # 2002-11-14 15:30:00
+                            '%Y-%m-%dT%H:%M:%S',      # 2002-11-14T15:30:00 (ISO)
+                            '%d/%m/%Y %H:%M:%S',      # 14/11/2002 15:30:00 (BR)
+                            '%d/%m/%Y %H:%M',         # 14/11/2002 15:30 (BR)
+                            '%Y-%m-%d',               # 2002-11-14 (converte para datetime)
+                            '%d/%m/%Y',               # 14/11/2002 (converte para datetime)
+                        ]
+                        coerced_dt = None
+                        for fmt in datetime_formats:
+                            try:
+                                if fmt in ['%Y-%m-%d', '%d/%m/%Y']:
+                                    # Para formatos só de data, adiciona hora 00:00:00
+                                    date_part = datetime.strptime(resolved_value, fmt).date()
+                                    coerced_dt = datetime.combine(date_part, datetime.min.time())
+                                else:
+                                    coerced_dt = datetime.strptime(resolved_value, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        if coerced_dt is None:
+                            # Última tentativa com fromisoformat
+                            try:
+                                coerced_dt = datetime.fromisoformat(resolved_value)
+                            except ValueError:
+                                raise ValueError(f'Formato de data/hora inválido para campo "{key}". Use DD/MM/YYYY HH:MM:SS ou YYYY-MM-DD HH:MM:SS')
+                        resolved_value = coerced_dt
                 except Exception:
                     pass
             setattr(instance, key, resolved_value)
@@ -111,19 +217,64 @@ def _apply_updates(instance, updates):
 def registrar_lead_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
     data = _parse_json_request(request)
     if data is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='registrar_lead_api',
+            mensagem='Tentativa de registro com JSON inválido',
+            dados_extras={'body': request.body.decode('utf-8', errors='ignore')[:500]},
+            request=request
+        )
         return JsonResponse({'error': 'JSON inválido'}, status=400)
+    
     required = ['nome_razaosocial', 'telefone']
     missing = [f for f in required if not data.get(f)]
     if missing:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='registrar_lead_api',
+            mensagem=f'Campos obrigatórios ausentes: {", ".join(missing)}',
+            dados_extras={'dados_recebidos': data, 'campos_faltando': missing},
+            request=request
+        )
         return JsonResponse({'error': f'Campos obrigatórios ausentes: {", ".join(missing)}'}, status=400)
+    
     try:
         allowed = _model_field_names(LeadProspecto)
         payload = {k: v for k, v in data.items() if k in allowed}
         lead = LeadProspecto.objects.create(**payload)
+        
+        # Log de sucesso
+        _criar_log_sistema(
+            nivel='INFO',
+            modulo='registrar_lead_api',
+            mensagem=f'Lead registrado com sucesso - ID: {lead.id}',
+            dados_extras={
+                'lead_id': lead.id,
+                'nome': lead.nome_razaosocial,
+                'telefone': lead.telefone,
+                'origem': lead.origem,
+                'dados_enviados': data
+            },
+            request=request
+        )
+        
         return JsonResponse({'success': True, 'id': lead.id, 'lead': _serialize_instance(lead)}, status=201)
     except Exception as e:
+        # Log de erro
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='registrar_lead_api',
+            mensagem=f'Erro ao registrar lead: {str(e)}',
+            dados_extras={
+                'erro': str(e),
+                'traceback': traceback.format_exc(),
+                'dados_enviados': data
+            },
+            request=request
+        )
         return JsonResponse({'error': str(e)}, status=400)
 
 
@@ -131,32 +282,127 @@ def registrar_lead_api(request):
 def atualizar_lead_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
     data = _parse_json_request(request)
     if data is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_lead_api',
+            mensagem='Tentativa de atualização com JSON inválido',
+            dados_extras={'body': request.body.decode('utf-8', errors='ignore')[:500]},
+            request=request
+        )
         return JsonResponse({'error': 'JSON inválido'}, status=400)
+    
     termo = data.get('termo_busca')
     busca = data.get('busca')
     if not termo or busca is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_lead_api',
+            mensagem='Parâmetros de busca faltando',
+            dados_extras={'dados_recebidos': data},
+            request=request
+        )
         return JsonResponse({'error': 'Parâmetros obrigatórios: termo_busca e busca'}, status=400)
+    
     try:
         qs = LeadProspecto.objects.filter(**{termo: busca})
-    except Exception:
+    except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_lead_api',
+            mensagem=f'Termo de busca inválido: {termo}',
+            dados_extras={'termo': termo, 'busca': busca, 'erro': str(e)},
+            request=request
+        )
         return JsonResponse({'error': 'termo_busca inválido para LeadProspecto'}, status=400)
+    
     count = qs.count()
     if count == 0:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_lead_api',
+            mensagem='Lead não encontrado',
+            dados_extras={'termo': termo, 'busca': busca},
+            request=request
+        )
         return JsonResponse({'error': 'Registro não encontrado'}, status=404)
+    
     if count > 1:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_lead_api',
+            mensagem=f'Múltiplos leads encontrados ({count})',
+            dados_extras={'termo': termo, 'busca': busca, 'quantidade': count},
+            request=request
+        )
         return JsonResponse({'error': f'Múltiplos registros encontrados ({count}). Refine a busca.'}, status=400)
+    
     lead = qs.first()
     updates = {k: v for k, v in data.items() if k not in ['termo_busca', 'busca']}
     if not updates:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_lead_api',
+            mensagem='Nenhum campo para atualizar',
+            dados_extras={'lead_id': lead.id, 'dados_recebidos': data},
+            request=request
+        )
         return JsonResponse({'error': 'Nenhum campo para atualizar informado'}, status=400)
+    
+    # Guardar valores antigos para o log
+    valores_antigos = {}
+    for campo in updates.keys():
+        if hasattr(lead, campo):
+            valores_antigos[campo] = getattr(lead, campo)
+    
     try:
         _apply_updates(lead, updates)
+        
+        # Log de sucesso
+        _criar_log_sistema(
+            nivel='INFO',
+            modulo='atualizar_lead_api',
+            mensagem=f'Lead atualizado com sucesso - ID: {lead.id}',
+            dados_extras={
+                'lead_id': lead.id,
+                'termo_busca': termo,
+                'valor_busca': busca,
+                'campos_atualizados': list(updates.keys()),
+                'valores_antigos': valores_antigos,
+                'valores_novos': updates
+            },
+            request=request
+        )
+        
         return JsonResponse({'success': True, 'id': lead.id, 'lead': _serialize_instance(lead)})
     except ValueError as ve:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_lead_api',
+            mensagem=f'Erro de validação ao atualizar lead: {str(ve)}',
+            dados_extras={
+                'lead_id': lead.id,
+                'erro': str(ve),
+                'dados_tentados': updates
+            },
+            request=request
+        )
         return JsonResponse({'error': str(ve)}, status=404)
     except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_lead_api',
+            mensagem=f'Erro ao atualizar lead: {str(e)}',
+            dados_extras={
+                'lead_id': lead.id,
+                'erro': str(e),
+                'traceback': traceback.format_exc(),
+                'dados_tentados': updates
+            },
+            request=request
+        )
         return JsonResponse({'error': str(e)}, status=400)
 
 
@@ -164,13 +410,30 @@ def atualizar_lead_api(request):
 def registrar_prospecto_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
     data = _parse_json_request(request)
     if data is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='registrar_prospecto_api',
+            mensagem='Tentativa de registro com JSON inválido',
+            dados_extras={'body': request.body.decode('utf-8', errors='ignore')[:500]},
+            request=request
+        )
         return JsonResponse({'error': 'JSON inválido'}, status=400)
+    
     required = ['nome_prospecto']
     missing = [f for f in required if not data.get(f)]
     if missing:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='registrar_prospecto_api',
+            mensagem=f'Campos obrigatórios ausentes: {", ".join(missing)}',
+            dados_extras={'dados_recebidos': data, 'campos_faltando': missing},
+            request=request
+        )
         return JsonResponse({'error': f'Campos obrigatórios ausentes: {", ".join(missing)}'}, status=400)
+    
     try:
         allowed = _model_field_names(Prospecto)
         payload = {k: v for k, v in data.items() if k in allowed}
@@ -180,10 +443,44 @@ def registrar_prospecto_api(request):
         if 'lead_id' in data and isinstance(data['lead_id'], int):
             payload['lead_id'] = data['lead_id']
         prospecto = Prospecto.objects.create(**payload)
+        
+        # Log de sucesso
+        _criar_log_sistema(
+            nivel='INFO',
+            modulo='registrar_prospecto_api',
+            mensagem=f'Prospecto registrado com sucesso - ID: {prospecto.id}',
+            dados_extras={
+                'prospecto_id': prospecto.id,
+                'nome': prospecto.nome_prospecto,
+                'lead_id': prospecto.lead_id,
+                'status': prospecto.status,
+                'dados_enviados': data
+            },
+            request=request
+        )
+        
         return JsonResponse({'success': True, 'id': prospecto.id, 'prospecto': _serialize_instance(prospecto)}, status=201)
     except LeadProspecto.DoesNotExist:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='registrar_prospecto_api',
+            mensagem='Lead informado não encontrado',
+            dados_extras={'lead_id': data.get('lead') or data.get('lead_id')},
+            request=request
+        )
         return JsonResponse({'error': 'Lead informado não encontrado'}, status=404)
     except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='registrar_prospecto_api',
+            mensagem=f'Erro ao registrar prospecto: {str(e)}',
+            dados_extras={
+                'erro': str(e),
+                'traceback': traceback.format_exc(),
+                'dados_enviados': data
+            },
+            request=request
+        )
         return JsonResponse({'error': str(e)}, status=400)
 
 
@@ -191,32 +488,127 @@ def registrar_prospecto_api(request):
 def atualizar_prospecto_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
     data = _parse_json_request(request)
     if data is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_prospecto_api',
+            mensagem='Tentativa de atualização com JSON inválido',
+            dados_extras={'body': request.body.decode('utf-8', errors='ignore')[:500]},
+            request=request
+        )
         return JsonResponse({'error': 'JSON inválido'}, status=400)
+    
     termo = data.get('termo_busca')
     busca = data.get('busca')
     if not termo or busca is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_prospecto_api',
+            mensagem='Parâmetros de busca faltando',
+            dados_extras={'dados_recebidos': data},
+            request=request
+        )
         return JsonResponse({'error': 'Parâmetros obrigatórios: termo_busca e busca'}, status=400)
+    
     try:
         qs = Prospecto.objects.filter(**{termo: busca})
-    except Exception:
+    except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_prospecto_api',
+            mensagem=f'Termo de busca inválido: {termo}',
+            dados_extras={'termo': termo, 'busca': busca, 'erro': str(e)},
+            request=request
+        )
         return JsonResponse({'error': 'termo_busca inválido para Prospecto'}, status=400)
+    
     count = qs.count()
     if count == 0:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_prospecto_api',
+            mensagem='Prospecto não encontrado',
+            dados_extras={'termo': termo, 'busca': busca},
+            request=request
+        )
         return JsonResponse({'error': 'Registro não encontrado'}, status=404)
+    
     if count > 1:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_prospecto_api',
+            mensagem=f'Múltiplos prospectos encontrados ({count})',
+            dados_extras={'termo': termo, 'busca': busca, 'quantidade': count},
+            request=request
+        )
         return JsonResponse({'error': f'Múltiplos registros encontrados ({count}). Refine a busca.'}, status=400)
+    
     prospecto = qs.first()
     updates = {k: v for k, v in data.items() if k not in ['termo_busca', 'busca']}
     if not updates:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_prospecto_api',
+            mensagem='Nenhum campo para atualizar',
+            dados_extras={'prospecto_id': prospecto.id, 'dados_recebidos': data},
+            request=request
+        )
         return JsonResponse({'error': 'Nenhum campo para atualizar informado'}, status=400)
+    
+    # Guardar valores antigos para o log
+    valores_antigos = {}
+    for campo in updates.keys():
+        if hasattr(prospecto, campo):
+            valores_antigos[campo] = getattr(prospecto, campo)
+    
     try:
         _apply_updates(prospecto, updates)
+        
+        # Log de sucesso
+        _criar_log_sistema(
+            nivel='INFO',
+            modulo='atualizar_prospecto_api',
+            mensagem=f'Prospecto atualizado com sucesso - ID: {prospecto.id}',
+            dados_extras={
+                'prospecto_id': prospecto.id,
+                'termo_busca': termo,
+                'valor_busca': busca,
+                'campos_atualizados': list(updates.keys()),
+                'valores_antigos': valores_antigos,
+                'valores_novos': updates
+            },
+            request=request
+        )
+        
         return JsonResponse({'success': True, 'id': prospecto.id, 'prospecto': _serialize_instance(prospecto)})
     except ValueError as ve:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_prospecto_api',
+            mensagem=f'Erro de validação ao atualizar prospecto: {str(ve)}',
+            dados_extras={
+                'prospecto_id': prospecto.id,
+                'erro': str(ve),
+                'dados_tentados': updates
+            },
+            request=request
+        )
         return JsonResponse({'error': str(ve)}, status=404)
     except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_prospecto_api',
+            mensagem=f'Erro ao atualizar prospecto: {str(e)}',
+            dados_extras={
+                'prospecto_id': prospecto.id,
+                'erro': str(e),
+                'traceback': traceback.format_exc(),
+                'dados_tentados': updates
+            },
+            request=request
+        )
         return JsonResponse({'error': str(e)}, status=400)
 
 
@@ -224,13 +616,30 @@ def atualizar_prospecto_api(request):
 def registrar_historico_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
     data = _parse_json_request(request)
     if data is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='registrar_historico_api',
+            mensagem='Tentativa de registro com JSON inválido',
+            dados_extras={'body': request.body.decode('utf-8', errors='ignore')[:500]},
+            request=request
+        )
         return JsonResponse({'error': 'JSON inválido'}, status=400)
+    
     required = ['telefone', 'status']
     missing = [f for f in required if not data.get(f)]
     if missing:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='registrar_historico_api',
+            mensagem=f'Campos obrigatórios ausentes: {", ".join(missing)}',
+            dados_extras={'dados_recebidos': data, 'campos_faltando': missing},
+            request=request
+        )
         return JsonResponse({'error': f'Campos obrigatórios ausentes: {", ".join(missing)}'}, status=400)
+    
     try:
         allowed = _model_field_names(HistoricoContato)
         payload = {k: v for k, v in data.items() if k in allowed}
@@ -239,43 +648,274 @@ def registrar_historico_api(request):
         if 'lead_id' in data and isinstance(data['lead_id'], int):
             payload['lead_id'] = data['lead_id']
         contato = HistoricoContato.objects.create(**payload)
+        
+        # Log de sucesso
+        _criar_log_sistema(
+            nivel='INFO',
+            modulo='registrar_historico_api',
+            mensagem=f'Histórico de contato registrado com sucesso - ID: {contato.id}',
+            dados_extras={
+                'historico_id': contato.id,
+                'telefone': contato.telefone,
+                'status': contato.status,
+                'lead_id': contato.lead_id,
+                'dados_enviados': data
+            },
+            request=request
+        )
+        
         return JsonResponse({'success': True, 'id': contato.id, 'historico': _serialize_instance(contato)}, status=201)
     except LeadProspecto.DoesNotExist:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='registrar_historico_api',
+            mensagem='Lead informado não encontrado',
+            dados_extras={'lead_id': data.get('lead') or data.get('lead_id')},
+            request=request
+        )
         return JsonResponse({'error': 'Lead informado não encontrado'}, status=404)
     except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='registrar_historico_api',
+            mensagem=f'Erro ao registrar histórico: {str(e)}',
+            dados_extras={
+                'erro': str(e),
+                'traceback': traceback.format_exc(),
+                'dados_enviados': data
+            },
+            request=request
+        )
         return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def verificar_relacionamentos_api(request):
+    """
+    API para verificar e relacionar prospectos órfãos com leads baseado no id_hubsoft
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    try:
+        # Log da verificação
+        _criar_log_sistema('INFO', 'verificar_relacionamentos_api', 'Iniciando verificação de relacionamentos', request=request)
+        
+        relacionamentos_criados = 0
+        
+        # Buscar prospectos sem lead que tenham id_prospecto_hubsoft
+        prospectos_sem_lead = Prospecto.objects.filter(
+            lead__isnull=True,
+            id_prospecto_hubsoft__isnull=False
+        ).exclude(id_prospecto_hubsoft='')
+        
+        for prospecto in prospectos_sem_lead:
+            id_hub = prospecto.id_prospecto_hubsoft.strip()
+            if not id_hub:
+                continue
+                
+            # Buscar lead correspondente
+            lead = LeadProspecto.objects.filter(id_hubsoft=id_hub).first()
+            if lead:
+                # Relacionar prospecto com lead
+                prospecto.lead = lead
+                prospecto.save()
+                relacionamentos_criados += 1
+                
+                # Log do relacionamento criado
+                _criar_log_sistema(
+                    'INFO', 
+                    'verificar_relacionamentos_api', 
+                    f'Relacionamento criado: Prospecto #{prospecto.id} → Lead #{lead.id}',
+                    dados_extras={
+                        'prospecto_id': prospecto.id,
+                        'lead_id': lead.id,
+                        'id_hubsoft': id_hub
+                    },
+                    request=request
+                )
+        
+        # Buscar leads sem prospectos que tenham id_hubsoft
+        leads_com_hubsoft = LeadProspecto.objects.filter(
+            id_hubsoft__isnull=False
+        ).exclude(id_hubsoft='')
+        
+        for lead in leads_com_hubsoft:
+            id_hub = lead.id_hubsoft.strip()
+            if not id_hub:
+                continue
+                
+            # Buscar prospectos órfãos correspondentes
+            prospectos_sem_lead = Prospecto.objects.filter(
+                id_prospecto_hubsoft=id_hub,
+                lead__isnull=True
+            )
+            
+            if prospectos_sem_lead.exists():
+                # Relacionar todos os prospectos encontrados
+                count = prospectos_sem_lead.update(lead=lead)
+                relacionamentos_criados += count
+                
+                # Log dos relacionamentos criados
+                for prospecto in prospectos_sem_lead:
+                    _criar_log_sistema(
+                        'INFO', 
+                        'verificar_relacionamentos_api', 
+                        f'Relacionamento criado: Lead #{lead.id} → Prospecto #{prospecto.id}',
+                        dados_extras={
+                            'lead_id': lead.id,
+                            'prospecto_id': prospecto.id,
+                            'id_hubsoft': id_hub
+                        },
+                        request=request
+                    )
+        
+        # Log final
+        _criar_log_sistema(
+            'INFO', 
+            'verificar_relacionamentos_api', 
+            f'Verificação concluída: {relacionamentos_criados} relacionamentos criados',
+            dados_extras={'relacionamentos_criados': relacionamentos_criados},
+            request=request
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'relacionamentos_criados': relacionamentos_criados,
+            'message': f'Verificação concluída. {relacionamentos_criados} relacionamentos criados.'
+        })
+        
+    except Exception as e:
+        error_msg = str(e)
+        _criar_log_sistema('ERROR', 'verificar_relacionamentos_api', f'Erro na verificação: {error_msg}', request=request)
+        return JsonResponse({'error': f'Erro na verificação: {error_msg}'}, status=500)
 
 
 @csrf_exempt
 def atualizar_historico_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
     data = _parse_json_request(request)
     if data is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_historico_api',
+            mensagem='Tentativa de atualização com JSON inválido',
+            dados_extras={'body': request.body.decode('utf-8', errors='ignore')[:500]},
+            request=request
+        )
         return JsonResponse({'error': 'JSON inválido'}, status=400)
+    
     termo = data.get('termo_busca')
     busca = data.get('busca')
     if not termo or busca is None:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_historico_api',
+            mensagem='Parâmetros de busca faltando',
+            dados_extras={'dados_recebidos': data},
+            request=request
+        )
         return JsonResponse({'error': 'Parâmetros obrigatórios: termo_busca e busca'}, status=400)
+    
     try:
         qs = HistoricoContato.objects.filter(**{termo: busca})
-    except Exception:
+    except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_historico_api',
+            mensagem=f'Termo de busca inválido: {termo}',
+            dados_extras={'termo': termo, 'busca': busca, 'erro': str(e)},
+            request=request
+        )
         return JsonResponse({'error': 'termo_busca inválido para Histórico de Contato'}, status=400)
+    
     count = qs.count()
     if count == 0:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_historico_api',
+            mensagem='Histórico não encontrado',
+            dados_extras={'termo': termo, 'busca': busca},
+            request=request
+        )
         return JsonResponse({'error': 'Registro não encontrado'}, status=404)
+    
     if count > 1:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_historico_api',
+            mensagem=f'Múltiplos históricos encontrados ({count})',
+            dados_extras={'termo': termo, 'busca': busca, 'quantidade': count},
+            request=request
+        )
         return JsonResponse({'error': f'Múltiplos registros encontrados ({count}). Refine a busca.'}, status=400)
+    
     contato = qs.first()
     updates = {k: v for k, v in data.items() if k not in ['termo_busca', 'busca']}
     if not updates:
+        _criar_log_sistema(
+            nivel='WARNING',
+            modulo='atualizar_historico_api',
+            mensagem='Nenhum campo para atualizar',
+            dados_extras={'historico_id': contato.id, 'dados_recebidos': data},
+            request=request
+        )
         return JsonResponse({'error': 'Nenhum campo para atualizar informado'}, status=400)
+    
+    # Guardar valores antigos para o log
+    valores_antigos = {}
+    for campo in updates.keys():
+        if hasattr(contato, campo):
+            valores_antigos[campo] = getattr(contato, campo)
+    
     try:
         _apply_updates(contato, updates)
+        
+        # Log de sucesso
+        _criar_log_sistema(
+            nivel='INFO',
+            modulo='atualizar_historico_api',
+            mensagem=f'Histórico atualizado com sucesso - ID: {contato.id}',
+            dados_extras={
+                'historico_id': contato.id,
+                'termo_busca': termo,
+                'valor_busca': busca,
+                'campos_atualizados': list(updates.keys()),
+                'valores_antigos': valores_antigos,
+                'valores_novos': updates
+            },
+            request=request
+        )
+        
         return JsonResponse({'success': True, 'id': contato.id, 'historico': _serialize_instance(contato)})
     except ValueError as ve:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_historico_api',
+            mensagem=f'Erro de validação ao atualizar histórico: {str(ve)}',
+            dados_extras={
+                'historico_id': contato.id,
+                'erro': str(ve),
+                'dados_tentados': updates
+            },
+            request=request
+        )
         return JsonResponse({'error': str(ve)}, status=404)
     except Exception as e:
+        _criar_log_sistema(
+            nivel='ERROR',
+            modulo='atualizar_historico_api',
+            mensagem=f'Erro ao atualizar histórico: {str(e)}',
+            dados_extras={
+                'historico_id': contato.id,
+                'erro': str(e),
+                'traceback': traceback.format_exc(),
+                'dados_tentados': updates
+            },
+            request=request
+        )
         return JsonResponse({'error': str(e)}, status=400)
 
 def dashboard_view(request):
@@ -320,9 +960,9 @@ def dashboard_data(request):
     """API para dados principais do dashboard"""
     try:
         # Cálculo das métricas conforme especificação:
-        # 1. ATENDIMENTOS = Histórico de contatos finalizados
+        # 1. ATENDIMENTOS = Histórico de contatos com fluxo inicializado
         atendimentos = HistoricoContato.objects.filter(
-            status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada']
+            status='fluxo_inicializado'
         ).count()
         
         # 2. LEADS = Quantidade de LeadProspecto ativos
@@ -342,7 +982,7 @@ def dashboard_data(request):
         
         # Métricas do período anterior
         atendimentos_anterior = HistoricoContato.objects.filter(
-            status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada'],
+            status='fluxo_inicializado',
             data_hora_contato__gte=inicio_periodo_anterior,
             data_hora_contato__lt=fim_periodo_anterior
         ).count()
@@ -434,11 +1074,11 @@ def dashboard_charts_data(request):
             dados.reverse()
             return dados
         
-        # 1. ATENDIMENTOS dos últimos 7 dias (contatos finalizados)
+        # 1. ATENDIMENTOS dos últimos 7 dias (contatos com fluxo inicializado)
         def count_atendimentos(data):
             return HistoricoContato.objects.filter(
                 data_hora_contato__date=data,
-                status__in=['fluxo_finalizado', 'transferido_humano', 'convertido_lead', 'venda_confirmada']
+                status__in=['fluxo_inicializado']
             ).count()
         
         atendimentosUltimos7Dias = gerar_ultimos_7_dias(count_atendimentos)
@@ -979,10 +1619,8 @@ def aprovar_venda_api(request):
             'usuario_validacao': usuario_validacao
         }
         
-        if prospecto.resultado_processamento:
-            prospecto.resultado_processamento.update(validacao_data)
-        else:
-            prospecto.resultado_processamento = validacao_data
+        # Atualizar resultado_processamento de forma segura
+        _atualizar_resultado_processamento(prospecto, validacao_data)
         
         prospecto.save()
         
@@ -1042,10 +1680,8 @@ def rejeitar_venda_api(request):
             'usuario_validacao': usuario_validacao
         }
         
-        if prospecto.resultado_processamento:
-            prospecto.resultado_processamento.update(rejeicao_data)
-        else:
-            prospecto.resultado_processamento = rejeicao_data
+        # Atualizar resultado_processamento de forma segura
+        _atualizar_resultado_processamento(prospecto, rejeicao_data)
         
         prospecto.save()
         

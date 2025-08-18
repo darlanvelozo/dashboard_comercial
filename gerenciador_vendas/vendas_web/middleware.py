@@ -10,13 +10,15 @@ _EXEMPT_PATTERNS = [
     re.compile(r"^admin/password_reset/"),
     re.compile(r"^static/"),
     re.compile(r"^favicon\.ico$"),
+    # APIs não devem requerer autenticação
+    re.compile(r"^api/"),
 ]
 
 
 class LoginRequiredMiddleware:
-    """Middleware que força autenticação em todas as páginas do painel.
+    """Middleware que força autenticação nas páginas do painel.
 
-    Exceções: página de login do admin, logout, reset de senha, arquivos estáticos e favicon.
+    Exceções: página de login do admin, logout, reset de senha, arquivos estáticos, favicon e APIs.
     Redireciona para settings.LOGIN_URL com parâmetro next.
     """
 
