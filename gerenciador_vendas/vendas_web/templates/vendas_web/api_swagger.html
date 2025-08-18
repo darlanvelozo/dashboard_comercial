@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Dashboard Comercial</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        body {
+            margin:0;
+            background: #fafafa;
+        }
+        .swagger-ui .topbar {
+            background-color: #1F3D59;
+        }
+        .swagger-ui .topbar .download-url-wrapper .select-label {
+            color: white;
+        }
+        .custom-header {
+            background: linear-gradient(135deg, #1F3D59, #2a4f73);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .custom-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+        .custom-header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .info-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            max-width: 1200px;
+            margin: 0 auto 2rem;
+            padding: 0 1rem;
+        }
+        .info-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #1F3D59;
+        }
+        .info-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: #1F3D59;
+            font-size: 1.2rem;
+        }
+        .info-card p {
+            margin: 0;
+            color: #666;
+            line-height: 1.5;
+        }
+        .endpoints-list {
+            list-style: none;
+            padding: 0;
+            margin: 0.5rem 0 0 0;
+        }
+        .endpoints-list li {
+            background: #f8f9fa;
+            margin: 0.25rem 0;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .method-get { border-left: 4px solid #28a745; }
+        .method-post { border-left: 4px solid #007bff; }
+        .method-put { border-left: 4px solid #ffc107; }
+        .method-delete { border-left: 4px solid #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="custom-header">
+        <h1>🚀 API Dashboard Comercial</h1>
+        <p>Documentação interativa e completa da API</p>
+    </div>
+
+    <div class="info-cards">
+        <div class="info-card">
+            <h3>📋 APIs Públicas (Registro/Atualização)</h3>
+            <p>Endpoints para criar e atualizar dados. Não requerem autenticação.</p>
+            <ul class="endpoints-list">
+                <li class="method-post">POST /api/leads/registrar/</li>
+                <li class="method-post">POST /api/leads/atualizar/</li>
+                <li class="method-post">POST /api/prospectos/registrar/</li>
+                <li class="method-post">POST /api/prospectos/atualizar/</li>
+                <li class="method-post">POST /api/historicos/registrar/</li>
+                <li class="method-post">POST /api/historicos/atualizar/</li>
+            </ul>
+        </div>
+
+        <div class="info-card">
+            <h3>🔍 APIs de Consulta</h3>
+            <p>Endpoints para consultar dados. Requerem autenticação.</p>
+            <ul class="endpoints-list">
+                <li class="method-get">GET /api/consultar/leads/</li>
+                <li class="method-get">GET /api/consultar/historicos/</li>
+            </ul>
+        </div>
+
+        <div class="info-card">
+            <h3>📊 APIs do Dashboard</h3>
+            <p>Endpoints para dados do dashboard. Requerem autenticação.</p>
+            <ul class="endpoints-list">
+                <li class="method-get">GET /api/dashboard/data/</li>
+                <li class="method-get">GET /api/dashboard/charts/</li>
+                <li class="method-get">GET /api/dashboard/prospectos/</li>
+            </ul>
+        </div>
+
+        <div class="info-card">
+            <h3>💰 APIs de Vendas</h3>
+            <p>Endpoints para validação de vendas. Requerem autenticação.</p>
+            <ul class="endpoints-list">
+                <li class="method-post">POST /api/vendas/aprovar/</li>
+                <li class="method-post">POST /api/vendas/rejeitar/</li>
+                <li class="method-get">GET /api/vendas/historico-contatos/</li>
+            </ul>
+        </div>
+
+        <div class="info-card">
+            <h3>🔧 Características Especiais</h3>
+            <p>Recursos avançados do sistema:</p>
+            <ul style="margin-top: 0.5rem;">
+                <li>✅ Status configuráveis via admin</li>
+                <li>✅ Logs automáticos de todas operações</li>
+                <li>✅ Relacionamentos automáticos via id_hubsoft</li>
+                <li>✅ Suporte a múltiplos formatos de data</li>
+                <li>✅ Validação de dados robusta</li>
+            </ul>
+        </div>
+
+        <div class="info-card">
+            <h3>📚 Recursos Adicionais</h3>
+            <p>Links úteis para desenvolvedores:</p>
+            <ul style="margin-top: 0.5rem;">
+                <li><a href="{% url 'vendas_web:api_documentation' %}" target="_blank">📖 Documentação Completa</a></li>
+                <li><a href="/admin/" target="_blank">⚙️ Django Admin</a></li>
+                <li><a href="{% url 'vendas_web:dashboard1' %}" target="_blank">📊 Dashboard</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            const spec = {
+                "openapi": "3.0.3",
+                "info": {
+                    "title": "Dashboard Comercial API",
+                    "description": "API completa para gerenciamento de leads, prospectos e histórico de contatos",
+                    "version": "1.0.0",
+                    "contact": {
+                        "name": "Suporte API",
+                        "email": "suporte@dashhboard.com"
+                    }
+                },
+                "servers": [
+                    {
+                        "url": window.location.origin,
+                        "description": "Servidor atual"
+                    }
+                ],
+                "tags": [
+                    {
+                        "name": "Leads",
+                        "description": "Operações com leads"
+                    },
+                    {
+                        "name": "Prospectos", 
+                        "description": "Operações com prospectos"
+                    },
+                    {
+                        "name": "Histórico",
+                        "description": "Operações com histórico de contatos"
+                    },
+                    {
+                        "name": "Dashboard",
+                        "description": "APIs do dashboard"
+                    },
+                    {
+                        "name": "Vendas",
+                        "description": "Validação de vendas"
+                    },
+                    {
+                        "name": "Sistema",
+                        "description": "Utilitários do sistema"
+                    }
+                ],
+                "paths": {
+                    "/api/leads/registrar/": {
+                        "post": {
+                            "tags": ["Leads"],
+                            "summary": "Registrar novo lead",
+                            "description": "Cria um novo lead no sistema",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/LeadCreateRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Lead criado com sucesso",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/LeadResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "400": {
+                                    "description": "Dados inválidos",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/ErrorResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/leads/atualizar/": {
+                        "post": {
+                            "tags": ["Leads"],
+                            "summary": "Atualizar lead existente",
+                            "description": "Atualiza um lead existente usando filtros dinâmicos",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/LeadUpdateRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Lead atualizado com sucesso",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/LeadResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "404": {
+                                    "description": "Lead não encontrado"
+                                },
+                                "400": {
+                                    "description": "Dados inválidos"
+                                }
+                            }
+                        }
+                    },
+                    "/api/prospectos/registrar/": {
+                        "post": {
+                            "tags": ["Prospectos"],
+                            "summary": "Registrar novo prospecto",
+                            "description": "Cria um novo prospecto no sistema",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/ProspectoCreateRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Prospecto criado com sucesso"
+                                },
+                                "400": {
+                                    "description": "Dados inválidos"
+                                }
+                            }
+                        }
+                    },
+                    "/api/prospectos/atualizar/": {
+                        "post": {
+                            "tags": ["Prospectos"],
+                            "summary": "Atualizar prospecto existente",
+                            "description": "Atualiza um prospecto existente usando filtros dinâmicos",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/ProspectoUpdateRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Prospecto atualizado com sucesso"
+                                },
+                                "404": {
+                                    "description": "Prospecto não encontrado"
+                                }
+                            }
+                        }
+                    },
+                    "/api/historicos/registrar/": {
+                        "post": {
+                            "tags": ["Histórico"],
+                            "summary": "Registrar histórico de contato",
+                            "description": "Cria um novo registro de histórico de contato",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HistoricoCreateRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Histórico criado com sucesso"
+                                },
+                                "400": {
+                                    "description": "Dados inválidos"
+                                }
+                            }
+                        }
+                    },
+                    "/api/verificar-relacionamentos/": {
+                        "post": {
+                            "tags": ["Sistema"],
+                            "summary": "Verificar relacionamentos automáticos",
+                            "description": "Verifica e cria relacionamentos entre leads e prospectos baseado no id_hubsoft",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Verificação concluída",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "success": {"type": "boolean"},
+                                                    "relacionamentos_criados": {"type": "integer"},
+                                                    "message": {"type": "string"}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/consultar/leads/": {
+                        "get": {
+                            "tags": ["Leads"],
+                            "summary": "Consultar leads",
+                            "description": "Consulta leads com filtros e paginação. Requer autenticação.",
+                            "security": [{"sessionAuth": []}],
+                            "parameters": [
+                                {
+                                    "name": "search",
+                                    "in": "query",
+                                    "description": "Busca por nome, email, telefone, empresa",
+                                    "schema": {"type": "string"}
+                                },
+                                {
+                                    "name": "origem",
+                                    "in": "query",
+                                    "description": "Filtro por origem",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["site", "facebook", "instagram", "google", "whatsapp", "indicacao", "telefone", "email", "outros"]
+                                    }
+                                },
+                                {
+                                    "name": "status_api",
+                                    "in": "query",
+                                    "description": "Filtro por status (configurável via admin)",
+                                    "schema": {"type": "string"}
+                                },
+                                {
+                                    "name": "ativo",
+                                    "in": "query",
+                                    "description": "Filtro por status ativo",
+                                    "schema": {"type": "boolean"}
+                                },
+                                {
+                                    "name": "page",
+                                    "in": "query",
+                                    "description": "Número da página",
+                                    "schema": {"type": "integer", "default": 1}
+                                },
+                                {
+                                    "name": "per_page",
+                                    "in": "query",
+                                    "description": "Itens por página",
+                                    "schema": {"type": "integer", "default": 20, "maximum": 100}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Lista de leads",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/LeadListResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "401": {
+                                    "description": "Não autenticado"
+                                }
+                            }
+                        }
+                    },
+                    "/api/dashboard/data/": {
+                        "get": {
+                            "tags": ["Dashboard"],
+                            "summary": "Dados principais do dashboard",
+                            "description": "Retorna métricas principais: atendimentos, leads, prospectos, vendas",
+                            "security": [{"sessionAuth": []}],
+                            "responses": {
+                                "200": {
+                                    "description": "Dados do dashboard",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/DashboardDataResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/vendas/aprovar/": {
+                        "post": {
+                            "tags": ["Vendas"],
+                            "summary": "Aprovar venda",
+                            "description": "Aprova uma venda de prospecto",
+                            "security": [{"sessionAuth": []}],
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "required": ["prospecto_id", "observacoes"],
+                                            "properties": {
+                                                "prospecto_id": {"type": "integer"},
+                                                "observacoes": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Venda aprovada com sucesso"
+                                },
+                                "400": {
+                                    "description": "Dados inválidos"
+                                },
+                                "404": {
+                                    "description": "Prospecto não encontrado"
+                                }
+                            }
+                        }
+                    }
+                },
+                "components": {
+                    "securitySchemes": {
+                        "sessionAuth": {
+                            "type": "apiKey",
+                            "in": "cookie",
+                            "name": "sessionid",
+                            "description": "Cookie de sessão do Django. Faça login em /admin/login/ primeiro."
+                        }
+                    },
+                    "schemas": {
+                        "LeadCreateRequest": {
+                            "type": "object",
+                            "required": ["nome_razaosocial", "telefone"],
+                            "properties": {
+                                "nome_razaosocial": {
+                                    "type": "string",
+                                    "description": "Nome ou razão social",
+                                    "example": "Maria Silva"
+                                },
+                                "telefone": {
+                                    "type": "string",
+                                    "description": "Telefone com código do país",
+                                    "example": "+5585999999999"
+                                },
+                                "email": {
+                                    "type": "string",
+                                    "format": "email",
+                                    "example": "maria@exemplo.com"
+                                },
+                                "origem": {
+                                    "type": "string",
+                                    "enum": ["site", "facebook", "instagram", "google", "whatsapp", "indicacao", "telefone", "email", "outros"],
+                                    "default": "site"
+                                },
+                                "valor": {
+                                    "type": "number",
+                                    "format": "decimal",
+                                    "example": 1500.50
+                                },
+                                "empresa": {
+                                    "type": "string",
+                                    "example": "Empresa ABC"
+                                },
+                                "id_hubsoft": {
+                                    "type": "string",
+                                    "description": "ID para relacionamento automático",
+                                    "example": "HUB123"
+                                },
+                                "status_api": {
+                                    "type": "string",
+                                    "description": "Status configurável via admin",
+                                    "default": "pendente"
+                                },
+                                "data_nascimento": {
+                                    "type": "string",
+                                    "description": "Data em formato DD/MM/YYYY ou YYYY-MM-DD",
+                                    "example": "14/11/1985"
+                                }
+                            }
+                        },
+                        "LeadUpdateRequest": {
+                            "type": "object",
+                            "required": ["termo_busca", "busca"],
+                            "properties": {
+                                "termo_busca": {
+                                    "type": "string",
+                                    "description": "Campo para filtrar",
+                                    "example": "id_hubsoft"
+                                },
+                                "busca": {
+                                    "description": "Valor a buscar",
+                                    "example": "HUB123"
+                                },
+                                "status_api": {
+                                    "type": "string",
+                                    "example": "processado"
+                                },
+                                "score_qualificacao": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10,
+                                    "example": 8
+                                }
+                            }
+                        },
+                        "ProspectoCreateRequest": {
+                            "type": "object",
+                            "required": ["nome_prospecto"],
+                            "properties": {
+                                "nome_prospecto": {
+                                    "type": "string",
+                                    "example": "João da Silva"
+                                },
+                                "lead": {
+                                    "type": "integer",
+                                    "description": "ID do lead relacionado",
+                                    "example": 123
+                                },
+                                "id_prospecto_hubsoft": {
+                                    "type": "string",
+                                    "example": "HUB123"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "description": "Status configurável via admin",
+                                    "default": "pendente"
+                                },
+                                "prioridade": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 5,
+                                    "default": 1
+                                },
+                                "score_conversao": {
+                                    "type": "number",
+                                    "format": "decimal",
+                                    "minimum": 0,
+                                    "maximum": 100,
+                                    "example": 75.5
+                                }
+                            }
+                        },
+                        "ProspectoUpdateRequest": {
+                            "type": "object",
+                            "required": ["termo_busca", "busca"],
+                            "properties": {
+                                "termo_busca": {
+                                    "type": "string",
+                                    "example": "id_prospecto_hubsoft"
+                                },
+                                "busca": {
+                                    "example": "HUB123"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "example": "processando"
+                                }
+                            }
+                        },
+                        "HistoricoCreateRequest": {
+                            "type": "object",
+                            "required": ["telefone", "status"],
+                            "properties": {
+                                "telefone": {
+                                    "type": "string",
+                                    "example": "+5585988887777"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "description": "Status configurável via admin",
+                                    "example": "fluxo_inicializado"
+                                },
+                                "lead": {
+                                    "type": "integer",
+                                    "example": 123
+                                },
+                                "nome_contato": {
+                                    "type": "string",
+                                    "example": "João"
+                                },
+                                "duracao_segundos": {
+                                    "type": "integer",
+                                    "example": 42
+                                },
+                                "sucesso": {
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "LeadResponse": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "id": {"type": "integer"},
+                                "lead": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "integer"},
+                                        "nome_razaosocial": {"type": "string"},
+                                        "telefone": {"type": "string"},
+                                        "status_api": {"type": "string"},
+                                        "status_api_display": {"type": "string"},
+                                        "origem_display": {"type": "string"},
+                                        "data_cadastro": {"type": "string", "format": "date-time"}
+                                    }
+                                }
+                            }
+                        },
+                        "LeadListResponse": {
+                            "type": "object",
+                            "properties": {
+                                "results": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/components/schemas/LeadResponse/properties/lead"}
+                                },
+                                "total": {"type": "integer"},
+                                "page": {"type": "integer"},
+                                "per_page": {"type": "integer"},
+                                "pages": {"type": "integer"}
+                            }
+                        },
+                        "DashboardDataResponse": {
+                            "type": "object",
+                            "properties": {
+                                "stats": {
+                                    "type": "object",
+                                    "properties": {
+                                        "atendimentos": {"type": "integer"},
+                                        "leads": {"type": "integer"},
+                                        "prospectos": {"type": "integer"},
+                                        "vendas": {"type": "integer"},
+                                        "atendimentos_variacao": {"type": "string"},
+                                        "leads_variacao": {"type": "string"},
+                                        "prospectos_variacao": {"type": "string"},
+                                        "vendas_variacao": {"type": "string"}
+                                    }
+                                }
+                            }
+                        },
+                        "ErrorResponse": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string",
+                                    "example": "Campos obrigatórios ausentes: nome_razaosocial, telefone"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            SwaggerUIBundle({
+                url: '',
+                spec: spec,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                tryItOutEnabled: true,
+                requestInterceptor: (request) => {
+                    // Adicionar CSRF token se necessário
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (csrfToken) {
+                        request.headers['X-CSRFToken'] = csrfToken.value;
+                    }
+                    return request;
+                }
+            });
+        };
+    </script>
+</body>
+</html>

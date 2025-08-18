@@ -6,7 +6,8 @@ from .models import (
     Prospecto, 
     HistoricoContato, 
     ConfiguracaoSistema, 
-    LogSistema
+    LogSistema,
+    StatusConfiguravel,
 )
 
 
@@ -468,3 +469,12 @@ class LogSistemaAdmin(admin.ModelAdmin):
         if obj:
             return [field.name for field in obj._meta.fields]
         return self.readonly_fields
+
+
+@admin.register(StatusConfiguravel)
+class StatusConfiguravelAdmin(admin.ModelAdmin):
+    list_display = ['grupo', 'codigo', 'rotulo', 'ativo', 'ordem']
+    list_filter = ['grupo', 'ativo']
+    search_fields = ['codigo', 'rotulo']
+    list_editable = ['rotulo', 'ativo', 'ordem']
+    ordering = ['grupo', 'ordem', 'codigo']

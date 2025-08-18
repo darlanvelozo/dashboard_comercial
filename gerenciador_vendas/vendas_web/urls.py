@@ -48,4 +48,8 @@ urlpatterns = [
     # APIs de consulta (GET)
     path('api/consultar/leads/', views.consultar_leads_api, name='consultar_leads_api'),
     path('api/consultar/historicos/', views.consultar_historicos_api, name='consultar_historicos_api'),
+
+    # Documentação da API
+    path('api/docs/', views.api_swagger_view, name='api_swagger'),
+    path('api/docs/markdown/', views.api_documentation_view, name='api_documentation'),
 ]

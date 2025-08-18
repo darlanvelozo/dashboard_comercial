@@ -956,6 +956,34 @@ def vendas_view(request):
     return render(request, 'vendas_web/vendas.html', context)
 
 
+def api_swagger_view(request):
+    """View para a documentação Swagger da API"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/api_swagger.html', context)
+
+
+def api_documentation_view(request):
+    """View para servir a documentação da API em markdown"""
+    import os
+    from django.http import HttpResponse
+    
+    # Ler o arquivo de documentação
+    doc_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api_documentation.md')
+    
+    try:
+        with open(doc_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Retornar como texto plano com quebras de linha preservadas
+        response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+        response['Content-Disposition'] = 'inline; filename="api_documentation.txt"'
+        return response
+    except FileNotFoundError:
+        return HttpResponse("Documentação não encontrada", status=404)
+
+
 def dashboard_data(request):
     """API para dados principais do dashboard"""
     try:

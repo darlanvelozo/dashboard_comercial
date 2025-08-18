@@ -100,7 +100,6 @@ class LeadProspecto(models.Model):
     
     status_api = models.CharField(
         max_length=20,
-        choices=STATUS_API_CHOICES,
         default='pendente',
         verbose_name="Status API",
         help_text="Status do processamento na API"
@@ -306,6 +305,14 @@ class LeadProspecto(models.Model):
     
     def __str__(self):
         return f"{self.nome_razaosocial} - {self.email}"
+
+    def get_status_api_display(self):  # compatível com chamadas existentes
+        try:
+            return StatusConfiguravel.get_label('lead_status_api', self.status_api)
+        except Exception:
+            # fallback para rótulo definido em STATUS_API_CHOICES se existir
+            mapping = dict(self.STATUS_API_CHOICES)
+            return mapping.get(self.status_api, self.status_api)
     
     def get_valor_formatado(self):
         """Retorna o valor formatado em reais"""
@@ -509,7 +516,6 @@ class Prospecto(models.Model):
     
     status = models.CharField(
         max_length=20,
-        choices=STATUS_CHOICES,
         default='pendente',
         verbose_name="Status",
         help_text="Status atual do processamento"
@@ -623,6 +629,13 @@ class Prospecto(models.Model):
     
     def __str__(self):
         return f"{self.nome_prospecto} - {self.status}"
+
+    def get_status_display(self):  # compatível com chamadas existentes
+        try:
+            return StatusConfiguravel.get_label('prospecto_status', self.status)
+        except Exception:
+            mapping = dict(self.STATUS_CHOICES)
+            return mapping.get(self.status, self.status)
     
     def get_tempo_processamento_formatado(self):
         """Retorna o tempo de processamento formatado"""
@@ -801,7 +814,6 @@ class HistoricoContato(models.Model):
     
     status = models.CharField(
         max_length=30,
-        choices=STATUS_CHOICES,
         verbose_name="Status do Contato"
     )
     
@@ -940,6 +952,47 @@ class HistoricoContato(models.Model):
     
     def __str__(self):
         return f"{self.telefone} - {self.status} - {self.data_hora_contato.strftime('%d/%m/%Y %H:%M')}"
+
+    def get_status_display(self):  # compatível com chamadas existentes
+        try:
+            return StatusConfiguravel.get_label('historico_status', self.status)
+        except Exception:
+            mapping = dict(self.STATUS_CHOICES)
+            return mapping.get(self.status, self.status)
+
+
+class StatusConfiguravel(models.Model):
+    """
+    Tabela para gerenciar valores de status/labels via admin.
+    grupos esperados:
+      - lead_status_api
+      - prospecto_status
+      - historico_status
+    """
+    GRUPO_CHOICES = [
+        ('lead_status_api', 'Lead: Status API'),
+        ('prospecto_status', 'Prospecto: Status'),
+        ('historico_status', 'Histórico: Status'),
+    ]
+
+    grupo = models.CharField(max_length=50, choices=GRUPO_CHOICES, db_index=True)
+    codigo = models.CharField(max_length=50, db_index=True)
+    rotulo = models.CharField(max_length=100)
+    ativo = models.BooleanField(default=True)
+    ordem = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'status_configuravel'
+        unique_together = [('grupo', 'codigo')]
+        ordering = ['grupo', 'ordem', 'codigo']
+
+    def __str__(self):
+        return f"{self.grupo}:{self.codigo} -> {self.rotulo} ({'ativo' if self.ativo else 'inativo'})"
+
+    @classmethod
+    def get_label(cls, grupo: str, codigo: str) -> str:
+        registro = cls.objects.filter(grupo=grupo, codigo=codigo, ativo=True).first()
+        return registro.rotulo if registro else codigo
     
     def get_duracao_formatada(self):
         """Retorna a duração formatada"""

@@ -1,7 +1,8 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import LeadProspecto, Prospecto
+from .models import LeadProspecto, Prospecto, StatusConfiguravel
+from django.db.models.signals import post_migrate
 
 
 @receiver(post_save, sender=LeadProspecto)
@@ -54,3 +55,59 @@ def relate_prospecto_when_lead_has_hubsoft(sender, instance: LeadProspecto, crea
         # Relaciona todos os prospectos encontrados com este lead
         # Evita recursão de signals usando update direto no queryset
         prospectos_sem_lead.update(lead=instance)
+
+
+@receiver(post_migrate)
+def seed_default_status(sender, **kwargs):
+    """Semeia valores padrão nos status configuráveis, se não existirem."""
+    # Grupos e códigos padrão
+    defaults = {
+        'lead_status_api': [
+            ('pendente', 'Pendente'),
+            ('processado', 'Processado'),
+            ('erro', 'Erro'),
+            ('sucesso', 'Sucesso'),
+            ('rejeitado', 'Rejeitado'),
+            ('aguardando_retry', 'Aguardando Retry'),
+            ('processamento_manual', 'Processamento Manual'),
+        ],
+        'prospecto_status': [
+            ('pendente', 'Pendente'),
+            ('processando', 'Processando'),
+            ('processado', 'Processado'),
+            ('erro', 'Erro'),
+            ('finalizado', 'Finalizado'),
+            ('cancelado', 'Cancelado'),
+            ('aguardando_validacao', 'Aguardando Validação'),
+            ('validacao_aprovada', 'Validação Aprovada'),
+            ('validacao_rejeitada', 'Validação Rejeitada'),
+        ],
+        'historico_status': [
+            ('fluxo_inicializado', 'Fluxo Inicializado'),
+            ('fluxo_finalizado', 'Fluxo Finalizado'),
+            ('transferido_humano', 'Transferido para Humano'),
+            ('chamada_perdida', 'Chamada Perdida'),
+            ('ocupado', 'Ocupado'),
+            ('desligou', 'Desligou'),
+            ('nao_atendeu', 'Não Atendeu'),
+            ('abandonou_fluxo', 'Abandonou o Fluxo'),
+            ('numero_invalido', 'Número Inválido'),
+            ('erro_sistema', 'Erro do Sistema'),
+            ('convertido_lead', 'Convertido em Lead'),
+            ('venda_confirmada', 'Venda Confirmada'),
+            ('venda_rejeitada', 'Venda Rejeitada'),
+            ('venda_sem_viabilidade', 'Venda Sem Viabilidade'),
+            ('cliente_desistiu', 'Cliente Desistiu'),
+            ('aguardando_validacao', 'Aguardando Validação'),
+            ('followup_agendado', 'Follow-up Agendado'),
+            ('nao_qualificado', 'Não Qualificado'),
+        ],
+    }
+
+    for grupo, pares in defaults.items():
+        for ordem, (codigo, rotulo) in enumerate(pares, start=1):
+            StatusConfiguravel.objects.get_or_create(
+                grupo=grupo,
+                codigo=codigo,
+                defaults={'rotulo': rotulo, 'ativo': True, 'ordem': ordem},
+            )
