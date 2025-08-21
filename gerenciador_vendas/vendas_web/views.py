@@ -21,7 +21,11 @@ from .models import (
     FluxoAtendimento, 
     QuestaoFluxo, 
     AtendimentoFluxo, 
-    RespostaQuestao
+    RespostaQuestao,
+    ConfiguracaoCadastro,
+    PlanoInternet,
+    OpcaoVencimento,
+    CadastroCliente
 )
 
 
@@ -1773,13 +1777,50 @@ def dashboard_leads_data(request):
             for choice in LeadProspecto.STATUS_API_CHOICES
         ]
         
+        # Calcular estatísticas totais (não apenas da página atual)
+        from django.db.models import Sum, Count
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Valor total de todos os leads com valor
+        try:
+            valor_total = LeadProspecto.objects.filter(
+                valor__isnull=False,
+                valor__gt=0
+            ).aggregate(
+                total=Sum('valor')
+            )['total'] or 0
+        except Exception:
+            valor_total = 0
+        
+        # Leads de hoje
+        try:
+            hoje = timezone.now().date()
+            leads_hoje = LeadProspecto.objects.filter(
+                data_cadastro__date=hoje
+            ).count()
+        except Exception:
+            leads_hoje = 0
+        
+        # Leads desta semana
+        try:
+            inicio_semana = hoje - timedelta(days=hoje.weekday())
+            leads_semana = LeadProspecto.objects.filter(
+                data_cadastro__date__gte=inicio_semana
+            ).count()
+        except Exception:
+            leads_semana = 0
+        
         data = {
             'leads': leads_data,
             'total': total,
             'page': page,
             'pages': (total + per_page - 1) // per_page,
             'origemChoices': origem_choices,
-            'statusChoices': status_choices
+            'statusChoices': status_choices,
+            'valor_total': valor_total,
+            'leads_hoje': leads_hoje,
+            'leads_semana': leads_semana
         }
         
         return JsonResponse(data)
@@ -2578,3 +2619,229 @@ def consultar_historicos_api(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============================================================================
+# VIEWS PARA CADASTRO DE CLIENTES
+# ============================================================================
+
+def cadastro_cliente_view(request):
+    """View para a página de cadastro de clientes"""
+    try:
+        # Buscar configuração ativa
+        config = ConfiguracaoCadastro.objects.filter(ativo=True).first()
+        if not config:
+            # Configuração padrão se não houver nenhuma
+            config = {
+                'titulo_pagina': 'Cadastro de Cliente - Megalink',
+                'subtitulo_pagina': 'Preencha seus dados para começar',
+                'telefone_suporte': '(89) 2221-0068',
+                'whatsapp_suporte': '558922210068',
+                'email_suporte': 'contato@megalinkpiaui.com.br',
+                'mostrar_selecao_plano': True,
+                'cpf_obrigatorio': True,
+                'email_obrigatorio': True,
+                'telefone_obrigatorio': True,
+                'endereco_obrigatorio': True,
+                'validar_cep': True,
+                'validar_cpf': True,
+                'mostrar_progress_bar': True,
+                'numero_etapas': 4,
+                'mensagem_sucesso': 'Parabéns! Seu cadastro foi realizado com sucesso.',
+                'instrucoes_pos_cadastro': 'Em breve nossa equipe entrará em contato para agendar a instalação.',
+                'criar_lead_automatico': True,
+                'origem_lead_padrao': 'site'
+            }
+        
+        # Buscar planos ativos
+        planos = PlanoInternet.objects.filter(ativo=True).order_by('ordem_exibicao', 'valor_mensal')
+        
+        # Buscar opções de vencimento
+        vencimentos = OpcaoVencimento.objects.filter(ativo=True).order_by('ordem_exibicao', 'dia_vencimento')
+        
+        context = {
+            'config': config,
+            'planos': planos,
+            'vencimentos': vencimentos
+        }
+        
+        return render(request, 'vendas_web/cadastro.html', context)
+        
+    except Exception as e:
+        # Log do erro
+        print(f"Erro na view de cadastro: {e}")
+        return render(request, 'vendas_web/cadastro.html', {
+            'error': 'Erro ao carregar configurações. Tente novamente.'
+        })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_cadastro_cliente(request):
+    """API para processar cadastro de clientes"""
+    try:
+        data = json.loads(request.body)
+        
+        # Extrair dados do request
+        ip_cliente = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        # Criar instância do cadastro
+        cadastro = CadastroCliente(
+            nome_completo=data.get('nome_completo', '').strip(),
+            cpf=data.get('cpf', '').replace('.', '').replace('-', ''),
+            email=data.get('email', '').strip().lower(),
+            telefone=data.get('telefone', '').replace('(', '').replace(')', '').replace('-', '').replace(' ', ''),
+            data_nascimento=data.get('data_nascimento'),
+            cep=data.get('cep', '').replace('-', ''),
+            endereco=data.get('endereco', '').strip(),
+            numero=data.get('numero', '').strip(),
+            bairro=data.get('bairro', '').strip(),
+            cidade=data.get('cidade', '').strip(),
+            estado=data.get('estado', '').strip().upper(),
+            ip_cliente=ip_cliente,
+            user_agent=user_agent,
+            origem_cadastro=data.get('origem_cadastro', 'site')
+        )
+        
+        # Definir plano se selecionado
+        if data.get('plano_id'):
+            try:
+                plano = PlanoInternet.objects.get(id=data['plano_id'], ativo=True)
+                cadastro.plano_selecionado = plano
+            except PlanoInternet.DoesNotExist:
+                pass
+        
+        # Definir vencimento se selecionado
+        if data.get('vencimento_id'):
+            try:
+                vencimento = OpcaoVencimento.objects.get(id=data['vencimento_id'], ativo=True)
+                cadastro.vencimento_selecionado = vencimento
+            except OpcaoVencimento.DoesNotExist:
+                pass
+        
+        # Validar dados pessoais
+        erros_pessoais = cadastro.validar_dados_pessoais()
+        if erros_pessoais:
+            return JsonResponse({
+                'success': False,
+                'errors': erros_pessoais,
+                'step': 'dados_pessoais'
+            }, status=400)
+        
+        # Validar endereço
+        erros_endereco = cadastro.validar_endereco()
+        if erros_endereco:
+            return JsonResponse({
+                'success': False,
+                'errors': erros_endereco,
+                'step': 'endereco'
+            }, status=400)
+        
+        # Salvar cadastro
+        cadastro.save()
+        
+        # Atualizar status para finalizado
+        cadastro.status = 'finalizado'
+        cadastro.data_finalizacao = timezone.now()
+        cadastro.save()
+        
+        # Finalizar cadastro (gera lead e histórico)
+        if cadastro.finalizar_cadastro():
+            return JsonResponse({
+                'success': True,
+                'message': 'Cadastro realizado com sucesso!',
+                'cadastro_id': cadastro.id,
+                'lead_id': cadastro.lead_gerado.id if cadastro.lead_gerado else None
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Erro ao finalizar cadastro. Tente novamente.',
+                'errors': cadastro.erros_validacao
+            }, status=500)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Dados inválidos enviados.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro interno: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+def api_planos_internet(request):
+    """API para buscar planos de internet"""
+    try:
+        planos = PlanoInternet.objects.filter(ativo=True).order_by('ordem_exibicao', 'valor_mensal')
+        
+        planos_data = []
+        for plano in planos:
+            planos_data.append({
+                'id': plano.id,
+                'nome': plano.nome,
+                'descricao': plano.descricao,
+                'velocidade_download': plano.velocidade_download,
+                'velocidade_upload': plano.velocidade_upload,
+                'valor_mensal': float(plano.valor_mensal),
+                'valor_formatado': plano.get_valor_formatado(),
+                'velocidade_formatada': plano.get_velocidade_formatada(),
+                'wifi_6': plano.wifi_6,
+                'suporte_prioritario': plano.suporte_prioritario,
+                'suporte_24h': plano.suporte_24h,
+                'upload_simetrico': plano.upload_simetrico,
+                'destaque': plano.destaque,
+                'ordem_exibicao': plano.ordem_exibicao
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'planos': planos_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar planos: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+def api_vencimentos(request):
+    """API para buscar opções de vencimento"""
+    try:
+        vencimentos = OpcaoVencimento.objects.filter(ativo=True).order_by('ordem_exibicao', 'dia_vencimento')
+        
+        vencimentos_data = []
+        for vencimento in vencimentos:
+            vencimentos_data.append({
+                'id': vencimento.id,
+                'dia_vencimento': vencimento.dia_vencimento,
+                'descricao': vencimento.descricao,
+                'ordem_exibicao': vencimento.ordem_exibicao
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'vencimentos': vencimentos_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar vencimentos: {str(e)}'
+        }, status=500)
+
+
+def get_client_ip(request):
+    """Função para obter o IP real do cliente"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip

@@ -14,6 +14,10 @@ from .models import (
     QuestaoFluxo,
     AtendimentoFluxo,
     RespostaQuestao,
+    ConfiguracaoCadastro,
+    PlanoInternet,
+    OpcaoVencimento,
+    CadastroCliente,
 )
 
 
@@ -1355,3 +1359,323 @@ class RespostaQuestaoAdmin(admin.ModelAdmin):
             return "N/A"
     get_tempo_resposta_formatado.short_description = 'Tempo de Resposta'
     get_tempo_resposta_formatado.admin_order_field = 'tempo_resposta'
+
+# ============================================================================
+# ADMIN PARA MODELOS DE CADASTRO
+# ============================================================================
+
+@admin.register(ConfiguracaoCadastro)
+class ConfiguracaoCadastroAdmin(admin.ModelAdmin):
+    list_display = [
+        'empresa',
+        'titulo_pagina',
+        'mostrar_selecao_plano',
+        'criar_lead_automatico',
+        'ativo',
+        'data_atualizacao'
+    ]
+    list_filter = [
+        'ativo',
+        'mostrar_selecao_plano',
+        'criar_lead_automatico',
+        'validar_cep',
+        'validar_cpf'
+    ]
+    search_fields = ['empresa', 'titulo_pagina']
+    readonly_fields = ['data_criacao', 'data_atualizacao']
+    
+    fieldsets = (
+        ('Configurações Gerais', {
+            'fields': [
+                'empresa',
+                'titulo_pagina',
+                'subtitulo_pagina',
+                'ativo'
+            ]
+        }),
+        ('Contato e Suporte', {
+            'fields': [
+                'telefone_suporte',
+                'whatsapp_suporte',
+                'email_suporte'
+            ]
+        }),
+        ('Configurações de Planos', {
+            'fields': [
+                'mostrar_selecao_plano',
+                'plano_padrao'
+            ]
+        }),
+        ('Campos Obrigatórios', {
+            'fields': [
+                'cpf_obrigatorio',
+                'email_obrigatorio',
+                'telefone_obrigatorio',
+                'endereco_obrigatorio'
+            ]
+        }),
+        ('Validações', {
+            'fields': [
+                'validar_cep',
+                'validar_cpf'
+            ]
+        }),
+        ('Configurações de Fluxo', {
+            'fields': [
+                'mostrar_progress_bar',
+                'numero_etapas'
+            ]
+        }),
+        ('Mensagens', {
+            'fields': [
+                'mensagem_sucesso',
+                'instrucoes_pos_cadastro'
+            ]
+        }),
+        ('Integração', {
+            'fields': [
+                'criar_lead_automatico',
+                'origem_lead_padrao'
+            ]
+        }),
+        ('Notificações', {
+            'fields': [
+                'enviar_email_confirmacao',
+                'enviar_whatsapp_confirmacao'
+            ]
+        }),
+        ('Segurança', {
+            'fields': [
+                'captcha_obrigatorio',
+                'limite_tentativas_dia'
+            ]
+        }),
+        ('Metadados', {
+            'fields': [
+                'data_criacao',
+                'data_atualizacao'
+            ],
+            'classes': ('collapse',)
+        })
+    )
+    
+    save_on_top = True
+
+
+@admin.register(PlanoInternet)
+class PlanoInternetAdmin(admin.ModelAdmin):
+    list_display = [
+        'nome',
+        'velocidade_download',
+        'velocidade_upload',
+        'valor_mensal',
+        'destaque',
+        'ativo',
+        'ordem_exibicao'
+    ]
+    list_filter = [
+        'ativo',
+        'destaque',
+        'wifi_6',
+        'suporte_prioritario',
+        'suporte_24h',
+        'upload_simetrico'
+    ]
+    search_fields = ['nome', 'descricao']
+    list_editable = ['ativo', 'ordem_exibicao']
+    readonly_fields = ['data_criacao', 'data_atualizacao']
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': [
+                'nome',
+                'descricao',
+                'ativo'
+            ]
+        }),
+        ('Velocidades', {
+            'fields': [
+                'velocidade_download',
+                'velocidade_upload',
+                'upload_simetrico'
+            ]
+        }),
+        ('Preço', {
+            'fields': [
+                'valor_mensal',
+                'id_sistema_externo'
+            ]
+        }),
+        ('Características', {
+            'fields': [
+                'wifi_6',
+                'suporte_prioritario',
+                'suporte_24h'
+            ]
+        }),
+        ('Exibição', {
+            'fields': [
+                'destaque',
+                'ordem_exibicao'
+            ]
+        }),
+        ('Metadados', {
+            'fields': [
+                'data_criacao',
+                'data_atualizacao'
+            ],
+            'classes': ('collapse',)
+        })
+    )
+    
+    save_on_top = True
+
+
+@admin.register(OpcaoVencimento)
+class OpcaoVencimentoAdmin(admin.ModelAdmin):
+    list_display = [
+        'dia_vencimento',
+        'descricao',
+        'ordem_exibicao',
+        'ativo'
+    ]
+    list_filter = ['ativo']
+    list_editable = ['ativo', 'ordem_exibicao']
+    ordering = ['ordem_exibicao', 'dia_vencimento']
+    
+    fieldsets = (
+        ('Configuração', {
+            'fields': [
+                'dia_vencimento',
+                'descricao',
+                'ordem_exibicao',
+                'ativo'
+            ]
+        }),
+    )
+
+
+@admin.register(CadastroCliente)
+class CadastroClienteAdmin(admin.ModelAdmin):
+    list_display = [
+        'nome_completo',
+        'email',
+        'telefone',
+        'plano_selecionado',
+        'status',
+        'data_inicio',
+        'lead_gerado'
+    ]
+    list_filter = [
+        'status',
+        'origem_cadastro',
+        'data_inicio',
+        'plano_selecionado'
+    ]
+    search_fields = [
+        'nome_completo',
+        'cpf',
+        'email',
+        'telefone',
+        'cidade'
+    ]
+    readonly_fields = [
+        'data_inicio',
+        'data_finalizacao',
+        'tempo_total_cadastro',
+        'ip_cliente',
+        'user_agent',
+        'get_progresso_percentual',
+        'get_etapa_atual'
+    ]
+    
+    fieldsets = (
+        ('Dados Pessoais', {
+            'fields': [
+                'nome_completo',
+                'cpf',
+                'email',
+                'telefone',
+                'data_nascimento'
+            ]
+        }),
+        ('Endereço', {
+            'fields': [
+                'cep',
+                'endereco',
+                'numero',
+                'bairro',
+                'cidade',
+                'estado'
+            ]
+        }),
+        ('Plano e Vencimento', {
+            'fields': [
+                'plano_selecionado',
+                'vencimento_selecionado'
+            ]
+        }),
+        ('Status e Progresso', {
+            'fields': [
+                'status',
+                'get_progresso_percentual',
+                'get_etapa_atual',
+                'data_inicio',
+                'data_finalizacao',
+                'tempo_total_cadastro'
+            ]
+        }),
+        ('Integração', {
+            'fields': [
+                'lead_gerado',
+                'origem_cadastro'
+            ]
+        }),
+        ('Metadados', {
+            'fields': [
+                'ip_cliente',
+                'user_agent'
+            ],
+            'classes': ('collapse',)
+        }),
+        ('Auditoria', {
+            'fields': [
+                'tentativas_etapa',
+                'campos_preenchidos',
+                'erros_validacao'
+            ],
+            'classes': ('collapse',)
+        })
+    )
+    
+    actions = ['finalizar_cadastro', 'gerar_lead']
+    
+    def finalizar_cadastro(self, request, queryset):
+        """Ação para finalizar cadastros selecionados"""
+        count = 0
+        for cadastro in queryset:
+            if cadastro.status != 'finalizado':
+                if cadastro.finalizar_cadastro():
+                    count += 1
+        
+        self.message_user(
+            request,
+            f'{count} cadastro(s) finalizado(s) com sucesso.'
+        )
+    finalizar_cadastro.short_description = "Finalizar cadastros selecionados"
+    
+    def gerar_lead(self, request, queryset):
+        """Ação para gerar leads para cadastros selecionados"""
+        count = 0
+        for cadastro in queryset:
+            if not cadastro.lead_gerado:
+                if cadastro.gerar_lead():
+                    count += 1
+        
+        self.message_user(
+            request,
+            f'{count} lead(s) gerado(s) com sucesso.'
+        )
+    gerar_lead.short_description = "Gerar leads para cadastros selecionados"
+    
+    save_on_top = True

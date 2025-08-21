@@ -223,6 +223,7 @@
           <div>
             <h4>Valor Total</h4>
             <div class="value" id="statValorTotal">R$ 0,00</div>
+            <small style="color:#666; font-size:0.7rem;">Todos os leads com valor</small>
           </div>
         </div>
         <div class="stat">
@@ -238,6 +239,7 @@
           <div>
             <h4>Hoje</h4>
             <div class="value" id="statHoje">0</div>
+            <small style="color:#666; font-size:0.7rem;">Total do dia</small>
           </div>
         </div>
         <div class="stat">
@@ -245,6 +247,7 @@
           <div>
             <h4>Esta Semana</h4>
             <div class="value" id="statSemana">0</div>
+            <small style="color:#666; font-size:0.7rem;">Total da semana</small>
           </div>
         </div>
       </div>
@@ -678,32 +681,48 @@
       
       document.getElementById('statErros').textContent = erros;
       
-      // Calcular valor total
-      const valorTotal = leads.reduce((sum, l) => {
-        if (l.valor) {
-          const valor = parseFloat(l.valor.replace(/[^\d,]/g, '').replace(',', '.'));
-          return sum + (isNaN(valor) ? 0 : valor);
-        }
-        return sum;
-      }, 0);
+      // Calcular valor total - usar dados do servidor se disponíveis, senão calcular dos leads visíveis
+      let valorTotal = 0;
+      if (data.valor_total !== undefined) {
+        // Se o servidor forneceu o valor total, usar esse valor
+        valorTotal = data.valor_total;
+      } else {
+        // Senão, calcular apenas dos leads visíveis (fallback)
+        valorTotal = leads.reduce((sum, l) => {
+          if (l.valor) {
+            const valor = parseFloat(l.valor.replace(/[^\d,]/g, '').replace(',', '.'));
+            return sum + (isNaN(valor) ? 0 : valor);
+          }
+          return sum;
+        }, 0);
+      }
       
       document.getElementById('statValorTotal').textContent = formatarMoeda(valorTotal);
       
-      // Stats temporais (estimativa baseada na data)
-      const hoje = new Date();
-      const hojeStr = hoje.toLocaleDateString('pt-BR');
-      const leadsHoje = leads.filter(l => {
-        if (!l.data_cadastro) return false;
-        try {
-          const dataLead = new Date(l.data_cadastro);
-          return dataLead.toDateString() === hoje.toDateString();
-        } catch (error) {
-          return false;
-        }
-      }).length;
+      // Stats temporais - usar dados do servidor se disponíveis
+      if (data.leads_hoje !== undefined) {
+        document.getElementById('statHoje').textContent = data.leads_hoje;
+      } else {
+        // Fallback: calcular dos leads visíveis
+        const hoje = new Date();
+        const leadsHoje = leads.filter(l => {
+          if (!l.data_cadastro) return false;
+          try {
+            const dataLead = new Date(l.data_cadastro);
+            return dataLead.toDateString() === hoje.toDateString();
+          } catch (error) {
+            return false;
+          }
+        }).length;
+        document.getElementById('statHoje').textContent = leadsHoje;
+      }
       
-      document.getElementById('statHoje').textContent = leadsHoje;
-      document.getElementById('statSemana').textContent = Math.floor(data.total * 0.15); // Estimativa
+      if (data.leads_semana !== undefined) {
+        document.getElementById('statSemana').textContent = data.leads_semana;
+      } else {
+        // Fallback: estimativa baseada no total
+        document.getElementById('statSemana').textContent = Math.floor(data.total * 0.15);
+      }
     }
 
     // Funções de histórico

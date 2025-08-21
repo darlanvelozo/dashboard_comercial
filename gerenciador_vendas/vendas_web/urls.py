@@ -37,6 +37,12 @@ urlpatterns = [
     path('relatorio/leads/', views.relatorio_leads_view, name='relatorio_leads'),
     path('analise/atendimentos/', views.analise_atendimentos_view, name='analise_atendimentos'),
     path('relatorio/conversoes/', views.relatorio_conversoes_view, name='relatorio_conversoes'),
+    
+    # Rotas para cadastro de clientes
+    path('cadastro/', views.cadastro_cliente_view, name='cadastro_cliente'),
+    path('api/cadastro/cliente/', views.api_cadastro_cliente, name='api_cadastro_cliente'),
+    path('api/planos/internet/', views.api_planos_internet, name='api_planos_internet'),
+    path('api/vencimentos/', views.api_vencimentos, name='api_vencimentos'),
 
     # APIS simples de registro/update
     path('api/leads/registrar/', views.registrar_lead_api, name='registrar_lead'),
