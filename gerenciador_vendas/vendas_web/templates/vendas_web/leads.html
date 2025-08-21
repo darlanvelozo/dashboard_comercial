@@ -634,7 +634,7 @@
           <td style="font-weight:600; color:${lead.valor && parseFloat(lead.valor.replace(/[^\d,]/g, '').replace(',', '.')) > 0 ? '#27ae60' : '#666'}">${lead.valor || 'R$ 0,00'}</td>
           <td><span class="pill pill-blue">${lead.origem}</span></td>
           <td><span class="status-badge ${statusClass}">${lead.status_api}</span></td>
-          <td>${lead.data_cadastro}</td>
+          <td>${formatarDataLocal(lead.data_cadastro)}</td>
           <td>
             <div class="actions-grid">
               <button class="btn-pill" onclick="visualizarLead(${lead.id})" title="Visualizar">
@@ -782,7 +782,15 @@
       // Stats temporais (estimativa baseada na data)
       const hoje = new Date();
       const hojeStr = hoje.toLocaleDateString('pt-BR');
-      const leadsHoje = leads.filter(l => l.data_cadastro && l.data_cadastro.includes(hojeStr)).length;
+      const leadsHoje = leads.filter(l => {
+        if (!l.data_cadastro) return false;
+        try {
+          const dataLead = new Date(l.data_cadastro);
+          return dataLead.toDateString() === hoje.toDateString();
+        } catch (error) {
+          return false;
+        }
+      }).length;
       
       document.getElementById('statHoje').textContent = leadsHoje;
       document.getElementById('statSemana').textContent = Math.floor(data.total * 0.15); // Estimativa
@@ -979,6 +987,28 @@
         style: 'currency',
         currency: 'BRL'
       }).format(valor);
+    }
+
+    // Função para formatar datas no fuso horário local
+    function formatarDataLocal(dataString) {
+      if (!dataString) return '-';
+      
+      try {
+        const data = new Date(dataString);
+        if (isNaN(data.getTime())) return dataString; // Se não for uma data válida, retorna o original
+        
+        // Formatar no padrão específico: DD/MM/AAAA, HH:MM
+        const dia = data.getDate().toString().padStart(2, '0');
+        const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+        const ano = data.getFullYear();
+        const hora = data.getHours().toString().padStart(2, '0');
+        const minuto = data.getMinutes().toString().padStart(2, '0');
+        
+        return `${dia}/${mes}/${ano}, ${hora}:${minuto}`;
+      } catch (error) {
+        console.warn('Erro ao formatar data:', dataString, error);
+        return dataString;
+      }
     }
 
     function mostrarLoading(mostrar) {

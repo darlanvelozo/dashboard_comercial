@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gerenciar Vendas - ConsultePlus</title>
+  <title>Gerenciar Vendas - Megalink</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -191,7 +191,7 @@
       <div class="header-left">
         <div class="logo-section">
           <div class="logo">R</div>
-          <div class="logo-text">ConsultePlus</div>
+          <div class="logo-text">Megalink</div>
         </div>
         <nav class="nav-menu">
           <a href="{% url 'vendas_web:dashboard1' %}" class="nav-item">
@@ -561,6 +561,28 @@
       }
     }
 
+    // Função para formatar datas no fuso horário local
+    function formatarDataLocal(dataString) {
+      if (!dataString) return '-';
+      
+      try {
+        const data = new Date(dataString);
+        if (isNaN(data.getTime())) return dataString; // Se não for uma data válida, retorna o original
+        
+        // Formatar no padrão específico: DD/MM/AAAA, HH:MM
+        const dia = data.getDate().toString().padStart(2, '0');
+        const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+        const ano = data.getFullYear();
+        const hora = data.getHours().toString().padStart(2, '0');
+        const minuto = data.getMinutes().toString().padStart(2, '0');
+        
+        return `${dia}/${mes}/${ano}, ${hora}:${minuto}`;
+      } catch (error) {
+        console.warn('Erro ao formatar data:', dataString, error);
+        return dataString;
+      }
+    }
+
     // Função para verificar relacionamentos automaticamente
     async function verificarRelacionamentos() {
       try {
@@ -681,7 +703,7 @@
           </td>
           <td style="min-width: 250px;">${leadInfo}</td>
           <td><span class="status-badge ${statusClass}">${prospecto.status_display}</span></td>
-          <td>${prospecto.data_criacao}</td>
+          <td>${formatarDataLocal(prospecto.data_criacao)}</td>
           <td>
             <div class="actions-grid">
               <button class="btn-pill" onclick="visualizarProspecto(${prospecto.id})" title="Visualizar">
@@ -886,7 +908,7 @@
           <div class="timeline-content">
             <div class="timeline-header">
               <div class="timeline-status">${historico.status.display}</div>
-              <div class="timeline-date">${historico.data_hora}</div>
+              <div class="timeline-date">${formatarDataLocal(historico.data_hora)}</div>
             </div>
             <div class="timeline-details">
               <strong>${historico.nome_contato}</strong> • ${historico.telefone}
@@ -935,7 +957,7 @@
         let info = `ID: ${prospecto.id}\n`;
         info += `Nome: ${prospecto.nome_prospecto}\n`;
         info += `Status: ${prospecto.status_display}\n`;
-        info += `Data Criação: ${prospecto.data_criacao}\n`;
+        info += `Data Criação: ${formatarDataLocal(prospecto.data_criacao)}\n`;
         if (prospecto.lead) {
           info += `\nLead Relacionado:\n`;
           info += `- Nome: ${prospecto.lead.nome_razaosocial}\n`;

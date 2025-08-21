@@ -973,6 +973,8 @@ class StatusConfiguravel(models.Model):
         ('lead_status_api', 'Lead: Status API'),
         ('prospecto_status', 'Prospecto: Status'),
         ('historico_status', 'Histórico: Status'),
+        ('atendimento_status', 'Atendimento: Status'),
+        ('fluxo_status', 'Fluxo: Status'),
     ]
 
     grupo = models.CharField(max_length=50, choices=GRUPO_CHOICES, db_index=True)
@@ -1228,6 +1230,1002 @@ class LogSistema(models.Model):
     
     def __str__(self):
         return f"{self.nivel} - {self.modulo} - {self.data_criacao.strftime('%d/%m/%Y %H:%M')}"
+
+class FluxoAtendimento(models.Model):
+    """
+    Modelo para definir fluxos de atendimento personalizáveis
+    Cada fluxo pode ter múltiplas questões em ordem específica
+    """
+    TIPO_FLUXO_CHOICES = [
+        ('qualificacao', 'Qualificação de Lead'),
+        ('vendas', 'Vendas'),
+        ('suporte', 'Suporte'),
+        ('onboarding', 'Onboarding'),
+        ('pesquisa', 'Pesquisa de Satisfação'),
+        ('customizado', 'Customizado'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('ativo', 'Ativo'),
+        ('inativo', 'Inativo'),
+        ('rascunho', 'Rascunho'),
+        ('teste', 'Em Teste'),
+    ]
+    
+    nome = models.CharField(
+        max_length=255,
+        verbose_name="Nome do Fluxo",
+        help_text="Nome identificador do fluxo de atendimento"
+    )
+    
+    descricao = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Descrição",
+        help_text="Descrição detalhada do fluxo"
+    )
+    
+    tipo_fluxo = models.CharField(
+        max_length=20,
+        choices=TIPO_FLUXO_CHOICES,
+        default='qualificacao',
+        verbose_name="Tipo de Fluxo"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='rascunho',
+        verbose_name="Status"
+    )
+    
+    # Configurações do fluxo
+    max_tentativas = models.PositiveIntegerField(
+        default=3,
+        verbose_name="Máximo de Tentativas",
+        help_text="Número máximo de tentativas para completar o fluxo"
+    )
+    
+    tempo_limite_minutos = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Tempo Limite (minutos)",
+        help_text="Tempo máximo para completar o fluxo (opcional)"
+    )
+    
+    permite_pular_questoes = models.BooleanField(
+        default=False,
+        verbose_name="Permite Pular Questões",
+        help_text="Se o usuário pode pular questões opcionais"
+    )
+    
+    # Campos de controle
+    data_criacao = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Data de Criação"
+    )
+    
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    criado_por = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="Criado Por"
+    )
+    
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo"
+    )
+    
+    class Meta:
+        db_table = 'fluxos_atendimento'
+        verbose_name = "Fluxo de Atendimento"
+        verbose_name_plural = "Fluxos de Atendimento"
+        ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['tipo_fluxo']),
+            models.Index(fields=['status']),
+            models.Index(fields=['ativo']),
+        ]
+    
+    def __str__(self):
+        return f"{self.nome} ({self.get_tipo_fluxo_display()})"
+    
+    def get_questoes_ordenadas(self):
+        """Retorna questões ordenadas por índice"""
+        return self.questoes.filter(ativo=True).order_by('indice')
+    
+    def get_total_questoes(self):
+        """Retorna total de questões ativas"""
+        return self.questoes.filter(ativo=True).count()
+    
+    def get_questao_por_indice(self, indice):
+        """Retorna questão específica por índice"""
+        return self.questoes.filter(indice=indice, ativo=True).first()
+    
+    def get_proxima_questao(self, indice_atual):
+        """Retorna próxima questão após o índice atual"""
+        return self.questoes.filter(
+            indice__gt=indice_atual,
+            ativo=True
+        ).order_by('indice').first()
+    
+    def get_questao_anterior(self, indice_atual):
+        """Retorna questão anterior ao índice atual"""
+        return self.questoes.filter(
+            indice__lt=indice_atual,
+            ativo=True
+        ).order_by('indice').last()
+    
+    def pode_ser_usado(self):
+        """Verifica se o fluxo pode ser usado"""
+        return self.status == 'ativo' and self.ativo and self.get_total_questoes() > 0
+    
+    def get_estatisticas(self):
+        """Retorna estatísticas básicas do fluxo"""
+        from django.db.models import Count, Avg
+        
+        atendimentos = self.atendimentos.all()
+        total_atendimentos = atendimentos.count()
+        atendimentos_completados = atendimentos.filter(status='completado').count()
+        
+        if total_atendimentos > 0:
+            taxa_completacao = (atendimentos_completados / total_atendimentos) * 100
+        else:
+            taxa_completacao = 0
+        
+        tempo_medio = atendimentos.filter(
+            tempo_total__isnull=False
+        ).aggregate(
+            tempo_medio=Avg('tempo_total')
+        )['tempo_medio'] or 0
+        
+        return {
+            'total_atendimentos': total_atendimentos,
+            'atendimentos_completados': atendimentos_completados,
+            'taxa_completacao': round(taxa_completacao, 2),
+            'tempo_medio_segundos': round(tempo_medio, 2) if tempo_medio else 0,
+        }
+
+
+class QuestaoFluxo(models.Model):
+    """
+    Modelo para questões individuais dentro de um fluxo
+    Cada questão tem tipo específico, validação e opções de resposta
+    """
+    TIPO_QUESTAO_CHOICES = [
+        ('texto', 'Texto Livre'),
+        ('numero', 'Número'),
+        ('email', 'Email'),
+        ('telefone', 'Telefone'),
+        ('cpf_cnpj', 'CPF/CNPJ'),
+        ('cep', 'CEP'),
+        ('endereco', 'Endereço'),
+        ('select', 'Seleção Única'),
+        ('multiselect', 'Seleção Múltipla'),
+        ('data', 'Data'),
+        ('hora', 'Hora'),
+        ('data_hora', 'Data e Hora'),
+        ('boolean', 'Sim/Não'),
+        ('escala', 'Escala (1-10)'),
+        ('arquivo', 'Upload de Arquivo'),
+    ]
+    
+    TIPO_VALIDACAO_CHOICES = [
+        ('obrigatoria', 'Obrigatória'),
+        ('opcional', 'Opcional'),
+        ('condicional', 'Condicional'),
+    ]
+    
+    fluxo = models.ForeignKey(
+        FluxoAtendimento,
+        on_delete=models.CASCADE,
+        related_name='questoes',
+        verbose_name="Fluxo"
+    )
+    
+    indice = models.PositiveIntegerField(
+        verbose_name="Índice",
+        help_text="Ordem da questão no fluxo (1, 2, 3...)"
+    )
+    
+    titulo = models.CharField(
+        max_length=255,
+        verbose_name="Título da Questão",
+        help_text="Texto da pergunta para o usuário"
+    )
+    
+    descricao = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Descrição",
+        help_text="Descrição adicional ou instruções"
+    )
+    
+    tipo_questao = models.CharField(
+        max_length=20,
+        choices=TIPO_QUESTAO_CHOICES,
+        default='texto',
+        verbose_name="Tipo de Questão"
+    )
+    
+    tipo_validacao = models.CharField(
+        max_length=20,
+        choices=TIPO_VALIDACAO_CHOICES,
+        default='obrigatoria',
+        verbose_name="Tipo de Validação"
+    )
+    
+    # Configurações de resposta
+    opcoes_resposta = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Opções de Resposta",
+        help_text="Lista de opções para questões de seleção"
+    )
+    
+    resposta_padrao = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Resposta Padrão",
+        help_text="Resposta padrão ou placeholder"
+    )
+    
+    # Validações
+    regex_validacao = models.CharField(
+        max_length=500,
+        null=True,
+        blank=True,
+        verbose_name="Regex de Validação",
+        help_text="Expressão regular para validação customizada"
+    )
+    
+    tamanho_minimo = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Tamanho Mínimo",
+        help_text="Tamanho mínimo da resposta"
+    )
+    
+    tamanho_maximo = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Tamanho Máximo",
+        help_text="Tamanho máximo da resposta"
+    )
+    
+    valor_minimo = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Valor Mínimo",
+        help_text="Valor mínimo para questões numéricas"
+    )
+    
+    valor_maximo = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Valor Máximo",
+        help_text="Valor máximo para questões numéricas"
+    )
+    
+    # Lógica condicional
+    questao_dependencia = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Questão de Dependência",
+        help_text="Questão que deve ser respondida antes desta"
+    )
+    
+    valor_dependencia = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Valor de Dependência",
+        help_text="Valor específico da questão de dependência para mostrar esta"
+    )
+    
+    # Campos de controle
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativa"
+    )
+    
+    permite_voltar = models.BooleanField(
+        default=True,
+        verbose_name="Permite Voltar",
+        help_text="Se o usuário pode voltar para esta questão"
+    )
+    
+    permite_editar = models.BooleanField(
+        default=True,
+        verbose_name="Permite Editar",
+        help_text="Se a resposta pode ser editada após enviada"
+    )
+    
+    ordem_exibicao = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Ordem de Exibição",
+        help_text="Ordem para exibição na interface"
+    )
+    
+    class Meta:
+        db_table = 'questoes_fluxo'
+        verbose_name = "Questão do Fluxo"
+        verbose_name_plural = "Questões do Fluxo"
+        ordering = ['fluxo', 'indice']
+        unique_together = [('fluxo', 'indice')]
+        indexes = [
+            models.Index(fields=['fluxo', 'indice']),
+            models.Index(fields=['tipo_questao']),
+            models.Index(fields=['ativo']),
+        ]
+    
+    def __str__(self):
+        return f"{self.fluxo.nome} - Q{self.indice}: {self.titulo}"
+    
+    def get_opcoes_formatadas(self):
+        """Retorna opções de resposta formatadas"""
+        if self.opcoes_resposta and isinstance(self.opcoes_resposta, list):
+            return self.opcoes_resposta
+        return []
+    
+    def validar_resposta(self, resposta):
+        """
+        Valida uma resposta baseada nas regras da questão
+        Retorna (valido, mensagem_erro)
+        """
+        if not resposta and self.tipo_validacao == 'obrigatoria':
+            return False, "Esta questão é obrigatória"
+        
+        if not resposta:
+            return True, ""
+        
+        # Validação de tamanho
+        if self.tamanho_minimo and len(str(resposta)) < self.tamanho_minimo:
+            return False, f"Resposta deve ter pelo menos {self.tamanho_minimo} caracteres"
+        
+        if self.tamanho_maximo and len(str(resposta)) > self.tamanho_maximo:
+            return False, f"Resposta deve ter no máximo {self.tamanho_maximo} caracteres"
+        
+        # Validação de regex
+        if self.regex_validacao:
+            import re
+            if not re.match(self.regex_validacao, str(resposta)):
+                return False, "Formato da resposta não é válido"
+        
+        # Validação de valores numéricos
+        if self.tipo_questao == 'numero':
+            try:
+                valor = float(resposta)
+                if self.valor_minimo is not None and valor < self.valor_minimo:
+                    return False, f"Valor deve ser maior ou igual a {self.valor_minimo}"
+                if self.valor_maximo is not None and valor > self.valor_maximo:
+                    return False, f"Valor deve ser menor ou igual a {self.valor_maximo}"
+            except ValueError:
+                return False, "Resposta deve ser um número válido"
+        
+        # Validação de email
+        if self.tipo_questao == 'email':
+            from django.core.validators import EmailValidator
+            validator = EmailValidator()
+            try:
+                validator(resposta)
+            except:
+                return False, "Email inválido"
+        
+        # Validação de opções
+        if self.tipo_questao in ['select', 'multiselect'] and self.opcoes_resposta:
+            if self.tipo_questao == 'select':
+                if resposta not in self.opcoes_resposta:
+                    return False, "Opção selecionada não é válida"
+            else:  # multiselect
+                if not isinstance(resposta, list):
+                    return False, "Resposta deve ser uma lista de opções"
+                for opcao in resposta:
+                    if opcao not in self.opcoes_resposta:
+                        return False, f"Opção '{opcao}' não é válida"
+        
+        return True, ""
+    
+    def deve_ser_exibida(self, respostas_anteriores):
+        """
+        Verifica se a questão deve ser exibida baseada em dependências
+        """
+        if not self.questao_dependencia:
+            return True
+        
+        # Buscar resposta da questão de dependência
+        resposta_dependencia = respostas_anteriores.get(str(self.questao_dependencia.indice))
+        
+        if not resposta_dependencia:
+            return False
+        
+        # Se não há valor específico de dependência, sempre exibe
+        if not self.valor_dependencia:
+            return True
+        
+        # Verificar se a resposta corresponde ao valor esperado
+        return str(resposta_dependencia) == str(self.valor_dependencia)
+    
+    def clean(self):
+        """Validação personalizada do modelo"""
+        from django.core.exceptions import ValidationError
+        
+        # Se não tem índice, calcular automaticamente
+        if not self.indice and self.fluxo:
+            ultimo_indice = self.fluxo.questoes.aggregate(
+                models.Max('indice')
+            )['indice__max'] or 0
+            self.indice = ultimo_indice + 1
+        
+        # Verificar se o índice já existe para este fluxo
+        if self.pk:  # Se é uma edição
+            existing = QuestaoFluxo.objects.filter(
+                fluxo=self.fluxo,
+                indice=self.indice
+            ).exclude(pk=self.pk).exists()
+        else:  # Se é uma criação
+            existing = QuestaoFluxo.objects.filter(
+                fluxo=self.fluxo,
+                indice=self.indice
+            ).exists()
+        
+        if existing:
+            raise ValidationError({
+                'indice': f'Já existe uma questão com índice {self.indice} neste fluxo.'
+            })
+        
+        super().clean()
+    
+    def save(self, *args, **kwargs):
+        # Garantir que o índice seja preenchido antes de salvar
+        if not self.indice and self.fluxo:
+            ultimo_indice = self.fluxo.questoes.aggregate(
+                models.Max('indice')
+            )['indice__max'] or 0
+            self.indice = ultimo_indice + 1
+        
+        super().save(*args, **kwargs)
+
+
+class AtendimentoFluxo(models.Model):
+    """
+    Modelo para controlar uma sessão de atendimento específica
+    Relaciona lead/prospecto com um fluxo e controla o progresso
+    """
+    STATUS_CHOICES = [
+        ('iniciado', 'Iniciado'),
+        ('em_andamento', 'Em Andamento'),
+        ('pausado', 'Pausado'),
+        ('completado', 'Completado'),
+        ('abandonado', 'Abandonado'),
+        ('erro', 'Erro'),
+        ('cancelado', 'Cancelado'),
+        ('aguardando_validacao', 'Aguardando Validação'),
+        ('validado', 'Validado'),
+        ('rejeitado', 'Rejeitado'),
+    ]
+    
+    # Relacionamentos principais
+    lead = models.ForeignKey(
+        LeadProspecto,
+        on_delete=models.CASCADE,
+        related_name='atendimentos_fluxo',
+        verbose_name="Lead/Prospecto"
+    )
+    
+    fluxo = models.ForeignKey(
+        FluxoAtendimento,
+        on_delete=models.CASCADE,
+        related_name='atendimentos',
+        verbose_name="Fluxo"
+    )
+    
+    # Relacionamento opcional com histórico de contato
+    historico_contato = models.ForeignKey(
+        HistoricoContato,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='atendimentos_fluxo',
+        verbose_name="Histórico de Contato"
+    )
+    
+    # Controle de progresso
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default='iniciado',
+        verbose_name="Status"
+    )
+    
+    questao_atual = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Questão Atual",
+        help_text="Índice da questão atual no fluxo"
+    )
+    
+    total_questoes = models.PositiveIntegerField(
+        verbose_name="Total de Questões",
+        help_text="Total de questões no fluxo"
+    )
+    
+    questoes_respondidas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Questões Respondidas"
+    )
+    
+    # Controle de tempo
+    data_inicio = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Data de Início"
+    )
+    
+    data_ultima_atividade = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data da Última Atividade"
+    )
+    
+    data_conclusao = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Conclusão"
+    )
+    
+    tempo_total = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Tempo Total (segundos)",
+        help_text="Tempo total para completar o fluxo"
+    )
+    
+    # Controle de tentativas
+    tentativas_atual = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Tentativas Atuais"
+    )
+    
+    max_tentativas = models.PositiveIntegerField(
+        default=3,
+        verbose_name="Máximo de Tentativas"
+    )
+    
+    # Dados do atendimento
+    dados_respostas = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict,
+        verbose_name="Dados das Respostas",
+        help_text="JSON com todas as respostas do usuário"
+        
+        
+    )
+    
+    observacoes = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Observações",
+        help_text="Observações sobre o atendimento"
+    )
+    
+    # Campos de auditoria
+    ip_origem = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name="IP de Origem"
+    )
+    
+    user_agent = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="User Agent"
+    )
+    
+    dispositivo = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="Dispositivo",
+        help_text="Tipo de dispositivo usado"
+    )
+    
+    # Campos para integração
+    id_externo = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="ID Externo",
+        help_text="ID em sistema externo (ex: Hubsoft)"
+    )
+    
+    resultado_final = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Resultado Final",
+        help_text="Resultado processado do atendimento"
+    )
+    
+    score_qualificacao = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        verbose_name="Score de Qualificação",
+        help_text="Score calculado baseado nas respostas"
+    )
+    
+    class Meta:
+        db_table = 'atendimentos_fluxo'
+        verbose_name = "Atendimento de Fluxo"
+        verbose_name_plural = "Atendimentos de Fluxo"
+        ordering = ['-data_inicio']
+        indexes = [
+            models.Index(fields=['lead']),
+            models.Index(fields=['fluxo']),
+            models.Index(fields=['status']),
+            models.Index(fields=['data_inicio']),
+            models.Index(fields=['questao_atual']),
+            models.Index(fields=['id_externo']),
+            # Índices compostos para consultas eficientes
+            models.Index(fields=['lead', 'status']),
+            models.Index(fields=['fluxo', 'status']),
+            models.Index(fields=['data_inicio', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.lead.nome_razaosocial} - {self.fluxo.nome} ({self.status})"
+    
+    def get_status_display(self):  # compatível com chamadas existentes
+        if not self.status:
+            return "Não definido"
+        try:
+            return StatusConfiguravel.get_label('atendimento_status', self.status)
+        except Exception:
+            mapping = dict(self.STATUS_CHOICES)
+            return mapping.get(self.status, self.status)
+    
+    def get_progresso_percentual(self):
+        """Retorna progresso em percentual"""
+        if not self.total_questoes or self.total_questoes == 0:
+            return 0
+        return round((self.questoes_respondidas / self.total_questoes) * 100, 1)
+    
+    def get_questao_atual_obj(self):
+        """Retorna objeto da questão atual"""
+        return self.fluxo.get_questao_por_indice(self.questao_atual)
+    
+    def get_proxima_questao(self):
+        """Retorna próxima questão a ser exibida"""
+        return self.fluxo.get_proxima_questao(self.questao_atual)
+    
+    def get_questao_anterior(self):
+        """Retorna questão anterior"""
+        return self.fluxo.get_questao_anterior(self.questao_atual)
+    
+    def pode_avancar(self):
+        """Verifica se pode avançar para próxima questão"""
+        questao_atual = self.get_questao_atual_obj()
+        if not questao_atual:
+            return False
+        
+        # Verificar se a questão atual foi respondida
+        resposta_atual = self.dados_respostas.get(str(self.questao_atual))
+        if questao_atual.tipo_validacao == 'obrigatoria' and not resposta_atual:
+            return False
+        
+        return True
+    
+    def pode_voltar(self):
+        """Verifica se pode voltar para questão anterior"""
+        questao_atual = self.get_questao_atual_obj()
+        if not questao_atual:
+            return False
+        
+        return questao_atual.permite_voltar and self.questao_atual > 1
+    
+    def responder_questao(self, indice_questao, resposta, validar=True):
+        """
+        Registra resposta para uma questão específica
+        Retorna (sucesso, mensagem)
+        """
+        questao = self.fluxo.get_questao_por_indice(indice_questao)
+        if not questao:
+            return False, "Questão não encontrada"
+        
+        # Validação se solicitada
+        if validar:
+            valido, mensagem_erro = questao.validar_resposta(resposta)
+            if not valido:
+                return False, mensagem_erro
+        
+        # Registrar resposta
+        self.dados_respostas[str(indice_questao)] = {
+            'resposta': resposta,
+            'data_resposta': timezone.now().isoformat(),
+            'valida': True,
+            'mensagem_erro': None
+        }
+        
+        # Atualizar contadores
+        if indice_questao == self.questao_atual:
+            self.questoes_respondidas += 1
+        
+        self.save()
+        return True, "Resposta registrada com sucesso"
+    
+    def avancar_questao(self):
+        """
+        Avança para próxima questão
+        Retorna (sucesso, proxima_questao)
+        """
+        if not self.pode_avancar():
+            return False, "Não é possível avançar"
+        
+        proxima_questao = self.get_proxima_questao()
+        if proxima_questao:
+            self.questao_atual = proxima_questao.indice
+            self.save()
+            return True, proxima_questao
+        
+        # Se não há próxima questão, finalizar
+        self.finalizar_atendimento()
+        return True, None
+    
+    def voltar_questao(self):
+        """
+        Volta para questão anterior
+        Retorna (sucesso, questao_anterior)
+        """
+        if not self.pode_voltar():
+            return False, "Não é possível voltar"
+        
+        questao_anterior = self.get_questao_anterior()
+        if questao_anterior:
+            self.questao_atual = questao_anterior.indice
+            self.save()
+            return True, questao_anterior
+        
+        return False, "Questão anterior não encontrada"
+    
+    def finalizar_atendimento(self, sucesso=True):
+        """
+        Finaliza o atendimento
+        """
+        self.status = 'completado' if sucesso else 'abandonado'
+        self.data_conclusao = timezone.now()
+        
+        # Calcular tempo total
+        if self.data_inicio and self.data_conclusao:
+            tempo_delta = self.data_conclusao - self.data_inicio
+            self.tempo_total = int(tempo_delta.total_seconds())
+        
+        # Calcular score de qualificação
+        self.score_qualificacao = self.calcular_score_qualificacao()
+        
+        self.save()
+        
+        # Atualizar lead se necessário
+        self.atualizar_lead_com_resultados()
+    
+    def calcular_score_qualificacao(self):
+        """
+        Calcula score de qualificação baseado nas respostas
+        """
+        score = 5  # Score base
+        
+        # Lógica de cálculo baseada no tipo de fluxo e respostas
+        if self.fluxo.tipo_fluxo == 'qualificacao':
+            # Score baseado em respostas específicas
+            for indice, dados in self.dados_respostas.items():
+                questao = self.fluxo.get_questao_por_indice(int(indice))
+                if questao and dados.get('valida'):
+                    # Lógica específica para cada tipo de questão
+                    if questao.tipo_questao == 'escala':
+                        try:
+                            valor = int(dados['resposta'])
+                            if valor >= 8:
+                                score += 2
+                            elif valor >= 6:
+                                score += 1
+                            elif valor <= 3:
+                                score -= 1
+                        except:
+                            pass
+        
+        return max(1, min(10, score))
+    
+    def atualizar_lead_com_resultados(self):
+        """
+        Atualiza o lead com resultados do atendimento
+        """
+        if self.status == 'completado' and self.score_qualificacao:
+            # Atualizar score do lead
+            self.lead.score_qualificacao = self.score_qualificacao
+            self.lead.save()
+            
+            # Adicionar observações sobre o fluxo
+            if self.observacoes:
+                if not self.lead.observacoes:
+                    self.lead.observacoes = ""
+                self.lead.observacoes += f"\n\nFluxo {self.fluxo.nome} ({self.data_conclusao.strftime('%d/%m/%Y %H:%M')}):\n{self.observacoes}"
+                self.lead.save()
+    
+    def get_tempo_formatado(self):
+        """Retorna tempo total formatado"""
+        if self.tempo_total:
+            if self.tempo_total < 60:
+                return f"{self.tempo_total}s"
+            elif self.tempo_total < 3600:
+                minutos = self.tempo_total // 60
+                segundos = self.tempo_total % 60
+                return f"{minutos}m {segundos}s"
+            else:
+                horas = self.tempo_total // 3600
+                minutos = (self.tempo_total % 3600) // 60
+                return f"{horas}h {minutos}m"
+        return "N/A"
+    
+    def get_respostas_formatadas(self):
+        """Retorna respostas formatadas para exibição"""
+        respostas_formatadas = []
+        
+        if not self.total_questoes or self.total_questoes == 0:
+            return respostas_formatadas
+        
+        for indice in range(1, self.total_questoes + 1):
+            questao = self.fluxo.get_questao_por_indice(indice)
+            if questao:
+                dados_resposta = self.dados_respostas.get(str(indice), {})
+                resposta = dados_resposta.get('resposta', 'Não respondida')
+                
+                respostas_formatadas.append({
+                    'indice': indice,
+                    'questao': questao.titulo,
+                    'resposta': resposta,
+                    'respondida': bool(dados_resposta),
+                    'valida': dados_resposta.get('valida', False),
+                    'data_resposta': dados_resposta.get('data_resposta'),
+                })
+        
+        return respostas_formatadas
+    
+    def pode_ser_reiniciado(self):
+        """Verifica se o atendimento pode ser reiniciado"""
+        return self.status in ['completado', 'abandonado', 'cancelado']
+    
+    def reiniciar_atendimento(self):
+        """Reinicia o atendimento do início"""
+        if not self.pode_ser_reiniciado():
+            return False
+        
+        self.status = 'iniciado'
+        self.questao_atual = 1
+        self.questoes_respondidas = 0
+        self.dados_respostas = {}
+        self.data_inicio = timezone.now()
+        self.data_conclusao = None
+        self.tempo_total = None
+        self.tentativas_atual += 1
+        self.observacoes = None
+        self.resultado_final = None
+        self.score_qualificacao = None
+        
+        self.save()
+        return True
+
+
+class RespostaQuestao(models.Model):
+    """
+    Modelo para armazenar respostas individuais de questões
+    Permite histórico detalhado e auditoria completa
+    """
+    atendimento = models.ForeignKey(
+        AtendimentoFluxo,
+        on_delete=models.CASCADE,
+        related_name='respostas_detalhadas',
+        verbose_name="Atendimento"
+    )
+    
+    questao = models.ForeignKey(
+        QuestaoFluxo,
+        on_delete=models.CASCADE,
+        related_name='respostas',
+        verbose_name="Questão"
+    )
+    
+    resposta = models.TextField(
+        verbose_name="Resposta"
+    )
+    
+    resposta_processada = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Resposta Processada",
+        help_text="Resposta processada/validada em formato estruturado"
+    )
+    
+    valida = models.BooleanField(
+        default=True,
+        verbose_name="Válida"
+    )
+    
+    mensagem_erro = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Mensagem de Erro"
+    )
+    
+    tentativas = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Tentativas"
+    )
+    
+    data_resposta = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Data da Resposta"
+    )
+    
+    tempo_resposta = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Tempo de Resposta (segundos)",
+        help_text="Tempo para responder esta questão"
+    )
+    
+    # Campos de auditoria
+    ip_origem = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name="IP de Origem"
+    )
+    
+    user_agent = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="User Agent"
+    )
+    
+    dados_extras = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Dados Extras",
+        help_text="Dados adicionais sobre a resposta"
+    )
+    
+    class Meta:
+        db_table = 'respostas_questao'
+        verbose_name = "Resposta de Questão"
+        verbose_name_plural = "Respostas de Questões"
+        ordering = ['atendimento', 'questao', '-data_resposta']
+        indexes = [
+            models.Index(fields=['atendimento', 'questao']),
+            models.Index(fields=['data_resposta']),
+            models.Index(fields=['valida']),
+        ]
+    
+    def __str__(self):
+        return f"{self.atendimento} - Q{self.questao.indice}: {self.resposta[:50]}"
+    
+    def get_tempo_resposta_formatado(self):
+        """Retorna tempo de resposta formatado"""
+        if self.tempo_resposta:
+            if self.tempo_resposta < 60:
+                return f"{self.tempo_resposta}s"
+            else:
+                minutos = self.tempo_resposta // 60
+                segundos = self.tempo_resposta % 60
+                return f"{minutos}m {segundos}s"
+        return "N/A"
+
 
 # Registrar sinais mesmo se o AppConfig não estiver referenciado diretamente em INSTALLED_APPS
 from . import signals  # noqa: E402,F401

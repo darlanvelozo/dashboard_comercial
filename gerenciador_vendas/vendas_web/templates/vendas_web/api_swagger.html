@@ -111,6 +111,10 @@
             <ul class="endpoints-list">
                 <li class="method-get">GET /api/consultar/leads/</li>
                 <li class="method-get">GET /api/consultar/historicos/</li>
+                <li class="method-get">GET /api/consultar/fluxos/</li>
+                <li class="method-get">GET /api/consultar/questoes/</li>
+                <li class="method-get">GET /api/consultar/atendimentos/</li>
+                <li class="method-get">GET /api/consultar/respostas/</li>
             </ul>
         </div>
 
@@ -200,6 +204,10 @@
                     {
                         "name": "Vendas",
                         "description": "Validação de vendas"
+                    },
+                    {
+                        "name": "Atendimento",
+                        "description": "APIs de fluxos de atendimento"
                     },
                     {
                         "name": "Sistema",
@@ -507,6 +515,274 @@
                                 }
                             }
                         }
+                    },
+                    "/api/consultar/fluxos/": {
+                        "get": {
+                            "tags": ["Atendimento"],
+                            "summary": "Consultar fluxos de atendimento",
+                            "description": "Consulta fluxos de atendimento com filtros e paginação. Requer autenticação.",
+                            "security": [{"sessionAuth": []}],
+                            "parameters": [
+                                {
+                                    "name": "search",
+                                    "in": "query",
+                                    "description": "Busca por nome, descrição ou tags",
+                                    "schema": {"type": "string"}
+                                },
+                                {
+                                    "name": "tipo_fluxo",
+                                    "in": "query",
+                                    "description": "Filtro por tipo de fluxo",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["qualificacao", "vendas", "suporte", "onboarding", "outros"]
+                                    }
+                                },
+                                {
+                                    "name": "ativo",
+                                    "in": "query",
+                                    "description": "Filtro por status ativo",
+                                    "schema": {"type": "boolean"}
+                                },
+                                {
+                                    "name": "status",
+                                    "in": "query",
+                                    "description": "Filtro por status (configurável via admin)",
+                                    "schema": {"type": "string"}
+                                },
+                                {
+                                    "name": "page",
+                                    "in": "query",
+                                    "description": "Número da página",
+                                    "schema": {"type": "integer", "default": 1}
+                                },
+                                {
+                                    "name": "per_page",
+                                    "in": "query",
+                                    "description": "Itens por página",
+                                    "schema": {"type": "integer", "default": 20, "maximum": 100}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Lista de fluxos",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/FluxoListResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "401": {
+                                    "description": "Não autenticado"
+                                }
+                            }
+                        }
+                    },
+                    "/api/consultar/questoes/": {
+                        "get": {
+                            "tags": ["Atendimento"],
+                            "summary": "Consultar questões de fluxo",
+                            "description": "Consulta questões de fluxo com filtros e paginação. Requer autenticação.",
+                            "security": [{"sessionAuth": []}],
+                            "parameters": [
+                                {
+                                    "name": "fluxo_id",
+                                    "in": "query",
+                                    "description": "Filtro por ID do fluxo",
+                                    "schema": {"type": "integer"}
+                                },
+                                {
+                                    "name": "search",
+                                    "in": "query",
+                                    "description": "Busca por título ou descrição",
+                                    "schema": {"type": "string"}
+                                },
+                                {
+                                    "name": "tipo_questao",
+                                    "in": "query",
+                                    "description": "Filtro por tipo de questão",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["texto", "numero", "email", "telefone", "cpf_cnpj", "cep", "endereco", "select", "multiselect", "data", "hora", "data_hora", "boolean", "escala", "arquivo"]
+                                    }
+                                },
+                                {
+                                    "name": "tipo_validacao",
+                                    "in": "query",
+                                    "description": "Filtro por tipo de validação",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["obrigatoria", "opcional", "condicional"]
+                                    }
+                                },
+                                {
+                                    "name": "ativo",
+                                    "in": "query",
+                                    "description": "Filtro por status ativo",
+                                    "schema": {"type": "boolean"}
+                                },
+                                {
+                                    "name": "page",
+                                    "in": "query",
+                                    "description": "Número da página",
+                                    "schema": {"type": "integer", "default": 1}
+                                },
+                                {
+                                    "name": "per_page",
+                                    "in": "query",
+                                    "description": "Itens por página",
+                                    "schema": {"type": "integer", "default": 20, "maximum": 100}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Lista de questões",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/QuestaoListResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "401": {
+                                    "description": "Não autenticado"
+                                }
+                            }
+                        }
+                    },
+                    "/api/consultar/atendimentos/": {
+                        "get": {
+                            "tags": ["Atendimento"],
+                            "summary": "Consultar atendimentos de fluxo",
+                            "description": "Consulta atendimentos de fluxo com filtros e paginação. Requer autenticação.",
+                            "security": [{"sessionAuth": []}],
+                            "parameters": [
+                                {
+                                    "name": "lead_id",
+                                    "in": "query",
+                                    "description": "Filtro por ID do lead",
+                                    "schema": {"type": "integer"}
+                                },
+                                {
+                                    "name": "fluxo_id",
+                                    "in": "query",
+                                    "description": "Filtro por ID do fluxo",
+                                    "schema": {"type": "integer"}
+                                },
+                                {
+                                    "name": "status",
+                                    "in": "query",
+                                    "description": "Filtro por status",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["iniciado", "em_andamento", "pausado", "completado", "abandonado", "erro", "cancelado", "aguardando_validacao", "validado", "rejeitado"]
+                                    }
+                                },
+                                {
+                                    "name": "search",
+                                    "in": "query",
+                                    "description": "Busca por nome do lead, fluxo ou observações",
+                                    "schema": {"type": "string"}
+                                },
+                                {
+                                    "name": "score_min",
+                                    "in": "query",
+                                    "description": "Score de qualificação mínimo (1-10)",
+                                    "schema": {"type": "integer", "minimum": 1, "maximum": 10}
+                                },
+                                {
+                                    "name": "score_max",
+                                    "in": "query",
+                                    "description": "Score de qualificação máximo (1-10)",
+                                    "schema": {"type": "integer", "minimum": 1, "maximum": 10}
+                                },
+                                {
+                                    "name": "page",
+                                    "in": "query",
+                                    "description": "Número da página",
+                                    "schema": {"type": "integer", "default": 1}
+                                },
+                                {
+                                    "name": "per_page",
+                                    "in": "query",
+                                    "description": "Itens por página",
+                                    "schema": {"type": "integer", "default": 20, "maximum": 100}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Lista de atendimentos",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/AtendimentoListResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "401": {
+                                    "description": "Não autenticado"
+                                }
+                            }
+                        }
+                    },
+                    "/api/consultar/respostas/": {
+                        "get": {
+                            "tags": ["Atendimento"],
+                            "summary": "Consultar respostas de questões",
+                            "description": "Consulta respostas de questões com filtros e paginação. Requer autenticação.",
+                            "security": [{"sessionAuth": []}],
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "query",
+                                    "description": "Filtro por ID do atendimento",
+                                    "schema": {"type": "integer"}
+                                },
+                                {
+                                    "name": "questao_id",
+                                    "in": "query",
+                                    "description": "Filtro por ID da questão",
+                                    "schema": {"type": "integer"}
+                                },
+                                {
+                                    "name": "valida",
+                                    "in": "query",
+                                    "description": "Filtro por respostas válidas",
+                                    "schema": {"type": "boolean"}
+                                },
+                                {
+                                    "name": "page",
+                                    "in": "query",
+                                    "description": "Número da página",
+                                    "schema": {"type": "integer", "default": 1}
+                                },
+                                {
+                                    "name": "per_page",
+                                    "in": "query",
+                                    "description": "Itens por página",
+                                    "schema": {"type": "integer", "default": 20, "maximum": 100}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Lista de respostas",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/RespostaListResponse"
+                                            }
+                                        }
+                                    }
+                                },
+                                "401": {
+                                    "description": "Não autenticado"
+                                }
+                            }
+                        }
                     }
                 },
                 "components": {
@@ -727,6 +1003,108 @@
                                         "vendas_variacao": {"type": "string"}
                                     }
                                 }
+                            }
+                        },
+                        "FluxoListResponse": {
+                            "type": "object",
+                            "properties": {
+                                "results": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "nome": {"type": "string"},
+                                            "descricao": {"type": "string"},
+                                            "tipo_fluxo": {"type": "string"},
+                                            "ativo": {"type": "boolean"},
+                                            "status": {"type": "string"},
+                                            "total_questoes": {"type": "integer"},
+                                            "total_atendimentos": {"type": "integer"},
+                                            "taxa_completacao": {"type": "string"}
+                                        }
+                                    }
+                                },
+                                "total": {"type": "integer"},
+                                "page": {"type": "integer"},
+                                "per_page": {"type": "integer"},
+                                "pages": {"type": "integer"}
+                            }
+                        },
+                        "QuestaoListResponse": {
+                            "type": "object",
+                            "properties": {
+                                "results": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "fluxo_id": {"type": "integer"},
+                                            "fluxo_nome": {"type": "string"},
+                                            "indice": {"type": "integer"},
+                                            "titulo": {"type": "string"},
+                                            "tipo_questao": {"type": "string"},
+                                            "tipo_validacao": {"type": "string"},
+                                            "ativo": {"type": "boolean"}
+                                        }
+                                    }
+                                },
+                                "total": {"type": "integer"},
+                                "page": {"type": "integer"},
+                                "per_page": {"type": "integer"},
+                                "pages": {"type": "integer"}
+                            }
+                        },
+                        "AtendimentoListResponse": {
+                            "type": "object",
+                            "properties": {
+                                "results": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "lead_id": {"type": "integer"},
+                                            "lead_nome": {"type": "string"},
+                                            "fluxo_id": {"type": "integer"},
+                                            "fluxo_nome": {"type": "string"},
+                                            "status": {"type": "string"},
+                                            "status_display": {"type": "string"},
+                                            "questao_atual": {"type": "integer"},
+                                            "progresso_percentual": {"type": "number"},
+                                            "score_qualificacao": {"type": "integer"}
+                                        }
+                                    }
+                                },
+                                "total": {"type": "integer"},
+                                "page": {"type": "integer"},
+                                "per_page": {"type": "integer"},
+                                "pages": {"type": "integer"}
+                            }
+                        },
+                        "RespostaListResponse": {
+                            "type": "object",
+                            "properties": {
+                                "results": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "atendimento_id": {"type": "integer"},
+                                            "questao_id": {"type": "integer"},
+                                            "questao_titulo": {"type": "string"},
+                                            "resposta": {"type": "string"},
+                                            "valida": {"type": "boolean"},
+                                            "data_resposta": {"type": "string", "format": "date-time"}
+                                        }
+                                    }
+                                },
+                                "total": {"type": "integer"},
+                                "page": {"type": "integer"},
+                                "per_page": {"type": "integer"},
+                                "pages": {"type": "integer"}
                             }
                         },
                         "ErrorResponse": {

@@ -1489,6 +1489,28 @@
             document.getElementById(modalId).style.display = 'none';
         }
 
+        // Função para formatar datas no fuso horário local
+        function formatarDataLocal(dataString) {
+            if (!dataString) return '-';
+            
+            try {
+                const data = new Date(dataString);
+                if (isNaN(data.getTime())) return dataString; // Se não for uma data válida, retorna o original
+                
+                // Formatar no padrão específico: DD/MM/AAAA, HH:MM
+                const dia = data.getDate().toString().padStart(2, '0');
+                const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+                const ano = data.getFullYear();
+                const hora = data.getHours().toString().padStart(2, '0');
+                const minuto = data.getMinutes().toString().padStart(2, '0');
+                
+                return `${dia}/${mes}/${ano}, ${hora}:${minuto}`;
+            } catch (error) {
+                console.warn('Erro ao formatar data:', dataString, error);
+                return dataString;
+            }
+        }
+
         // Função para carregar dados principais
         async function loadDashboardData() {
             try {
@@ -2134,7 +2156,7 @@
                     <td>${lead.empresa}</td>
                     <td>${lead.origem}</td>
                     <td><span class="status-badge status-${lead.status_api.toLowerCase()}">${lead.status_api}</span></td>
-                    <td>${lead.data_cadastro}</td>
+                    <td>${formatarDataLocal(lead.data_cadastro)}</td>
                     <td><span class="status-badge ${lead.ativo ? 'status-ativo' : 'status-inativo'}">${lead.ativo ? 'Ativo' : 'Inativo'}</span></td>
                     <td>
                         <button class="action-btn action-btn-view" onclick="viewLead(${lead.id})">
@@ -2165,8 +2187,8 @@
                     <td>${prospecto.id_prospecto_hubsoft}</td>
                     <td><span class="status-badge status-${prospecto.status.toLowerCase()}">${prospecto.status}</span></td>
                     <td>${prospecto.prioridade}</td>
-                    <td>${prospecto.data_criacao}</td>
-                    <td>${prospecto.data_processamento}</td>
+                    <td>${formatarDataLocal(prospecto.data_criacao)}</td>
+                    <td>${formatarDataLocal(prospecto.data_processamento)}</td>
                     <td>${prospecto.tentativas_processamento}</td>
                     <td>${prospecto.tempo_processamento}</td>
                     <td>
@@ -2194,7 +2216,7 @@
                     <td>${contato.nome_contato}</td>
                     <td>${contato.lead_relacionado || '-'}</td>
                     <td><span class="status-badge status-${contato.status.toLowerCase().replace(' ', '_')}">${contato.status}</span></td>
-                    <td>${contato.data_hora_contato}</td>
+                    <td>${formatarDataLocal(contato.data_hora_contato)}</td>
                     <td>${contato.duracao_formatada}</td>
                     <td><span class="status-badge ${contato.sucesso ? 'status-ativo' : 'status-inativo'}">${contato.sucesso ? 'Sim' : 'Não'}</span></td>
                     <td>
@@ -2303,7 +2325,7 @@
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Data Cadastro:</span>
-                            <span class="detail-value">${lead.data_cadastro}</span>
+                            <span class="detail-value">${formatarDataLocal(lead.data_cadastro)}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Ativo:</span>
@@ -2360,7 +2382,7 @@
                         <h4>Informações de Processamento</h4>
                         <div class="detail-row">
                             <span class="detail-label">Data Criação:</span>
-                            <span class="detail-value">${prospecto.data_criacao}</span>
+                            <span class="detail-value">${formatarDataLocal(prospecto.data_criacao)}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Data Processamento:</span>
@@ -2436,7 +2458,7 @@
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Data/Hora:</span>
-                            <span class="detail-value">${contato.data_hora_contato}</span>
+                            <span class="detail-value">${formatarDataLocal(contato.data_hora_contato)}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Duração:</span>
@@ -2576,7 +2598,7 @@
                             <div class="detail-card" style="border-left: 4px solid ${contato.sucesso ? '#27ae60' : '#e74c3c'};">
                                 <div class="detail-row">
                                     <span class="detail-label">📅 Data/Hora:</span>
-                                    <span class="detail-value"><strong>${contato.data_hora_contato}</strong></span>
+                                    <span class="detail-value"><strong>${formatarDataLocal(contato.data_hora_contato)}</strong></span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label">📊 Status:</span>

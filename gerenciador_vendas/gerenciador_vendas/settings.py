@@ -85,6 +85,9 @@ DATABASES = {
         'PASSWORD': 'qualidade@trunks.57',
         'HOST': '187.62.153.52',
         'PORT': '5432',
+        'OPTIONS': {
+            'options': '-c timezone=America/Sao_Paulo',
+        },
     }
 }
 
@@ -111,13 +114,24 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Sao_Paulo'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# Configurações de fuso horário para garantir horário de Brasília
+USE_L10N = True
+
+# Força o uso do fuso horário local em todas as operações
+import os
+os.environ['TZ'] = 'America/Sao_Paulo'
+
+# Configurações adicionais para fuso horário
+from django.utils import timezone
+timezone.activate('America/Sao_Paulo')
 
 
 # Static files (CSS, JavaScript, Images)

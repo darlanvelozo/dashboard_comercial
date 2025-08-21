@@ -48,6 +48,12 @@ urlpatterns = [
     # APIs de consulta (GET)
     path('api/consultar/leads/', views.consultar_leads_api, name='consultar_leads_api'),
     path('api/consultar/historicos/', views.consultar_historicos_api, name='consultar_historicos_api'),
+    
+    # APIs de consulta de Atendimento (GET)
+    path('api/consultar/fluxos/', views.consultar_fluxos_api, name='consultar_fluxos_api'),
+    path('api/consultar/questoes/', views.consultar_questoes_api, name='consultar_questoes_api'),
+    path('api/consultar/atendimentos/', views.consultar_atendimentos_api, name='consultar_atendimentos_api'),
+    path('api/consultar/respostas/', views.consultar_respostas_api, name='consultar_respostas_api'),
 
     # Documentação da API
     path('api/docs/', views.api_swagger_view, name='api_swagger'),
