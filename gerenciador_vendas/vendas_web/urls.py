@@ -35,6 +35,8 @@ urlpatterns = [
     path('leads/', views.leads_view, name='leads'),
     path('vendas/', views.vendas_view, name='vendas'),
     path('relatorio/leads/', views.relatorio_leads_view, name='relatorio_leads'),
+    path('analise/atendimentos/', views.analise_atendimentos_view, name='analise_atendimentos'),
+    path('relatorio/conversoes/', views.relatorio_conversoes_view, name='relatorio_conversoes'),
 
     # APIS simples de registro/update
     path('api/leads/registrar/', views.registrar_lead_api, name='registrar_lead'),

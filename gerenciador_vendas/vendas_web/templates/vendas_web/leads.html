@@ -1,48 +1,9 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gerenciar Leads - Megalink</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+{% extends 'vendas_web/base.html' %}
+
+{% block title %}Gerenciar Leads - Megalink{% endblock %}
+
+{% block custom_css %}
   <style>
-    body { font-family: 'Inter', sans-serif; background: #f8f9fa; color: #333; }
-    /* Header (copiado do dashboard1) */
-    .header { background: white; border-bottom: 1px solid #e0e0e0; padding: 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: visible; }
-    .header-content { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display:flex; justify-content:space-between; align-items:center; height:64px; }
-    .header-left { display:flex; align-items:center; gap:1.5rem; }
-    .logo-section { display:flex; align-items:center; gap:.75rem; }
-    .logo { width:32px; height:32px; background:#333; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:14px; }
-    .logo-text { color:#333; font-size:1.1rem; font-weight:600; }
-    .nav-menu { display:flex; align-items:center; gap:0; margin-left:2rem; overflow: visible; }
-    .nav-item { position:relative; padding:0 1.5rem; height:64px; display:flex; align-items:center; color:#666; text-decoration:none; font-weight:500; font-size:.9rem; transition:all .2s; border-bottom:3px solid transparent; }
-
-    .nav-item:hover { color:#333; background:#f8f9fa; }
-    .nav-item.active { color:#1F3D59; border-bottom-color:#1F3D59; }
-    .nav-item i { margin-left:.5rem; font-size:.8rem; }
-    
-    /* Dropdown Menu */
-    .nav-item.has-dropdown { position:relative; display:flex; align-items:center; justify-content:center; }
-    .dropdown-menu { position:absolute; top:100%; left:50%; background:white; border:1px solid #e0e0e0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.15); min-width:220px; z-index:1000; opacity:0; visibility:hidden; transform:translateX(-50%) translateY(-10px); transition:all .2s ease; margin-top:-1px; width:auto; }
-    .dropdown-menu.show { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
-    .dropdown-item { display:block; padding:.75rem 1rem; color:#333; text-decoration:none; font-size:.9rem; font-weight:500; transition:background-color .2s; }
-    .dropdown-item:hover { background-color:#f8f9fa; }
-    .dropdown-item.active { color:#1F3D59; background-color:#eef3f7; }
-    
-
-    .header-right { display:flex; align-items:center; gap:1rem; }
-    .user-section { display:flex; align-items:center; gap:.75rem; padding:.5rem; border-radius:8px; cursor:pointer; transition:background-color .2s; }
-    .user-section:hover { background-color:#f5f5f5; }
-    .user-avatar { width:32px; height:32px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; font-size:.8rem; }
-    .user-info { display:flex; flex-direction:column; align-items:flex-start; }
-    .user-name { color:#333; font-weight:500; font-size:.85rem; }
-    .user-company { color:#666; font-size:.75rem; }
-    .user-actions { display:flex; align-items:center; gap:.5rem; margin-left:.5rem; }
-    .chip-icon { border:none; background:#e8f8f5; color:#2c3e50; border-radius:16px; padding:6px 10px; display:inline-flex; align-items:center; gap:6px; font-weight:600; cursor:pointer; transition: background .2s, transform .1s; }
-    .chip-icon:hover { background:#d1f2eb; }
-    .chip-icon:active { transform: scale(0.98); }
 
     /* Página */
     .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
@@ -175,62 +136,9 @@
     .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
-</head>
-<body>
-  <!-- Header -->
-  <header class="header">
-    <div class="header-content">
-      <div class="header-left">
-        <div class="logo-section">
-          <div class="logo">R</div>
-          <div class="logo-text">Megalink</div>
-        </div>
-        <nav class="nav-menu">
-                     <a href="{% url 'vendas_web:dashboard1' %}" class="nav-item">
-             Dashboard
-           </a>
-           <a href="{% url 'vendas_web:leads' %}" class="nav-item active">
-             Leads
-           </a>
-           <a href="{% url 'vendas_web:vendas' %}" class="nav-item">
-             Vendas
-           </a>
-           <a href="#" class="nav-item">Relacionar</a>
-                                 <a href="#" class="nav-item has-dropdown" id="analisarMenu">Analisar <i class="fas fa-chevron-down"></i>
-              <div class="dropdown-menu" id="analisarDropdown">
-                <a href="{% url 'vendas_web:relatorio_leads' %}" class="dropdown-item active">
-                  Leads
-                </a>
-                <a href="#" class="dropdown-item">
-                  Atendimentos
-                </a>
-              </div>
-            </a>
-        </nav>
-      </div>
-      <div class="header-right">
-        <div class="user-section">
-          {% if user.is_authenticated %}
-            <div class="user-avatar">{{ user.first_name|first|default:user.username|first|upper }}{{ user.last_name|first|upper|default:"" }}</div>
-            <div class="user-info">
-              <div class="user-name">{{ user.first_name|default:user.username }} {{ user.last_name|default:"" }}</div>
-              <div class="user-company">ConsultePlus</div>
-            </div>
-          {% else %}
-            <div class="user-avatar">?</div>
-            <div class="user-info">
-              <div class="user-name">Visitante</div>
-              <div class="user-company">Não logado</div>
-            </div>
-          {% endif %}
-          <div class="user-actions">
-            <button class="chip-icon" title="Notificações"><i class="fas fa-bell"></i></button>
-            <button class="chip-icon" title="Configurações"><i class="fas fa-cog"></i></button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
+{% endblock %}
+
+{% block content %}
 
   <div class="container">
     <!-- Filtros -->
@@ -542,7 +450,9 @@
   <div id="loadingOverlay" class="loading-overlay" style="display: none;">
     <div class="spinner"></div>
   </div>
+{% endblock %}
 
+{% block extra_js %}
   <script>
     const API_LEADS = '{% url "vendas_web:dashboard_leads" %}';
     const API_HISTORICO = '{% url "vendas_web:historico_contatos" %}';
@@ -1155,6 +1065,5 @@
       timeoutBusca = setTimeout(carregarLeads, 400);
     }
     </script>
- </body>
- </html>
+{% endblock %}
 

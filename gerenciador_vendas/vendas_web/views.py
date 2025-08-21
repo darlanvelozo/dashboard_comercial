@@ -1,106 +1,142 @@
+# ============================================================================
+# IMPORTS
+# ============================================================================
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.db.models import Count, Sum, Avg, Q
 from datetime import datetime, timedelta
 import json
 import traceback
-from .models import LeadProspecto, Prospecto, HistoricoContato, ConfiguracaoSistema, LogSistema
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.db.models import Q, Count, Avg
-from django.utils import timezone
-from datetime import datetime, timedelta
-import json
-from .models import FluxoAtendimento, QuestaoFluxo, AtendimentoFluxo, RespostaQuestao
 
+# Models
+from .models import (
+    LeadProspecto, 
+    Prospecto, 
+    HistoricoContato, 
+    ConfiguracaoSistema, 
+    LogSistema,
+    FluxoAtendimento, 
+    QuestaoFluxo, 
+    AtendimentoFluxo, 
+    RespostaQuestao
+)
+
+
+# ============================================================================
+# FUNÇÕES DE SERIALIZAÇÃO - APIs de Atendimento
+# ============================================================================
 
 def _serialize_fluxo_atendimento(fluxo):
     """Serializa um objeto FluxoAtendimento"""
-    return {
-        'id': fluxo.id,
-        'nome': fluxo.nome,
-        'descricao': fluxo.descricao,
-        'tipo_fluxo': fluxo.tipo_fluxo,
-        'ativo': fluxo.ativo,
-        'data_criacao': fluxo.data_criacao.isoformat() if fluxo.data_criacao else None,
-        'data_atualizacao': fluxo.data_atualizacao.isoformat() if fluxo.data_atualizacao else None,
-        'total_questoes': fluxo.get_total_questoes(),
-        'total_atendimentos': fluxo.get_total_atendimentos(),
-        'taxa_completacao': fluxo.get_taxa_completacao(),
-        'status': fluxo.get_status_display(),
-        'prioridade': fluxo.prioridade,
-        'tags': fluxo.tags,
-        'configuracoes': fluxo.configuracoes,
-        'estatisticas': fluxo.get_estatisticas()
-    }
+    try:
+        return {
+            'id': fluxo.id,
+            'nome': fluxo.nome,
+            'descricao': fluxo.descricao,
+            'tipo_fluxo': fluxo.tipo_fluxo,
+            'ativo': fluxo.ativo,
+            'data_criacao': fluxo.data_criacao.isoformat() if fluxo.data_criacao else None,
+            'data_atualizacao': fluxo.data_atualizacao.isoformat() if fluxo.data_atualizacao else None,
+            'total_questoes': getattr(fluxo, 'get_total_questoes', lambda: 0)(),
+            'total_atendimentos': getattr(fluxo, 'get_total_atendimentos', lambda: 0)(),
+            'taxa_completacao': getattr(fluxo, 'get_taxa_completacao', lambda: '0.0%')(),
+            'status': getattr(fluxo, 'get_status_display', lambda: 'N/A')(),
+            'prioridade': getattr(fluxo, 'prioridade', None),
+            'tags': getattr(fluxo, 'tags', ''),
+            'configuracoes': getattr(fluxo, 'configuracoes', {}),
+            'estatisticas': getattr(fluxo, 'get_estatisticas', lambda: {})()
+        }
+    except Exception as e:
+        return {
+            'id': fluxo.id,
+            'nome': getattr(fluxo, 'nome', 'N/A'),
+            'error': f'Erro na serialização: {str(e)}'
+        }
 
 
 def _serialize_questao_fluxo(questao):
     """Serializa um objeto QuestaoFluxo"""
-    return {
-        'id': questao.id,
-        'fluxo_id': questao.fluxo.id,
-        'fluxo_nome': questao.fluxo.nome,
-        'indice': questao.indice,
-        'titulo': questao.titulo,
-        'descricao': questao.descricao,
-        'tipo_questao': questao.tipo_questao,
-        'tipo_validacao': questao.tipo_validacao,
-        'opcoes_resposta': questao.get_opcoes_formatadas(),
-        'resposta_padrao': questao.resposta_padrao,
-        'regex_validacao': questao.regex_validacao,
-        'tamanho_minimo': questao.tamanho_minimo,
-        'tamanho_maximo': questao.tamanho_maximo,
-        'valor_minimo': float(questao.valor_minimo) if questao.valor_minimo else None,
-        'valor_maximo': float(questao.valor_maximo) if questao.valor_maximo else None,
-        'questao_dependencia_id': questao.questao_dependencia.id if questao.questao_dependencia else None,
-        'valor_dependencia': questao.valor_dependencia,
-        'ativo': questao.ativo,
-        'permite_voltar': questao.permite_voltar,
-        'permite_editar': questao.permite_editar,
-        'ordem_exibicao': questao.ordem_exibicao
-    }
+    try:
+        return {
+            'id': questao.id,
+            'fluxo_id': questao.fluxo.id if questao.fluxo else None,
+            'fluxo_nome': questao.fluxo.nome if questao.fluxo else 'N/A',
+            'indice': questao.indice,
+            'titulo': questao.titulo,
+            'descricao': questao.descricao,
+            'tipo_questao': questao.tipo_questao,
+            'tipo_validacao': questao.tipo_validacao,
+            'opcoes_resposta': getattr(questao, 'get_opcoes_formatadas', lambda: [])(),
+            'resposta_padrao': questao.resposta_padrao,
+            'regex_validacao': questao.regex_validacao,
+            'tamanho_minimo': questao.tamanho_minimo,
+            'tamanho_maximo': questao.tamanho_maximo,
+            'valor_minimo': float(questao.valor_minimo) if questao.valor_minimo else None,
+            'valor_maximo': float(questao.valor_maximo) if questao.valor_maximo else None,
+            'questao_dependencia_id': questao.questao_dependencia.id if questao.questao_dependencia else None,
+            'valor_dependencia': questao.valor_dependencia,
+            'ativo': questao.ativo,
+            'permite_voltar': questao.permite_voltar,
+            'permite_editar': questao.permite_editar,
+            'ordem_exibicao': questao.ordem_exibicao
+        }
+    except Exception as e:
+        return {
+            'id': questao.id,
+            'titulo': getattr(questao, 'titulo', 'N/A'),
+            'error': f'Erro na serialização: {str(e)}'
+        }
 
 
 def _serialize_atendimento_fluxo(atendimento):
     """Serializa um objeto AtendimentoFluxo"""
-    return {
-        'id': atendimento.id,
-        'lead_id': atendimento.lead.id,
-        'lead_nome': atendimento.lead.nome_razaosocial,
-        'fluxo_id': atendimento.fluxo.id,
-        'fluxo_nome': atendimento.fluxo.nome,
-        'historico_contato_id': atendimento.historico_contato.id if atendimento.historico_contato else None,
-        'status': atendimento.status,
-        'status_display': atendimento.get_status_display(),
-        'questao_atual': atendimento.questao_atual,
-        'total_questoes': atendimento.total_questoes,
-        'questoes_respondidas': atendimento.questoes_respondidas,
-        'progresso_percentual': atendimento.get_progresso_percentual(),
-        'data_inicio': atendimento.data_inicio.isoformat() if atendimento.data_inicio else None,
-        'data_ultima_atividade': atendimento.data_ultima_atividade.isoformat() if atendimento.data_ultima_atividade else None,
-        'data_conclusao': atendimento.data_conclusao.isoformat() if atendimento.data_conclusao else None,
-        'tempo_total': atendimento.tempo_total,
-        'tempo_formatado': atendimento.get_tempo_formatado(),
-        'tentativas_atual': atendimento.tentativas_atual,
-        'max_tentativas': atendimento.max_tentativas,
-        'dados_respostas': atendimento.dados_respostas,
-        'respostas_formatadas': atendimento.get_respostas_formatadas(),
-        'observacoes': atendimento.observacoes,
-        'ip_origem': atendimento.ip_origem,
-        'user_agent': atendimento.user_agent,
-        'dispositivo': atendimento.dispositivo,
-        'id_externo': atendimento.id_externo,
-        'resultado_final': atendimento.resultado_final,
-        'score_qualificacao': atendimento.score_qualificacao,
-        'pode_avancar': atendimento.pode_avancar(),
-        'pode_voltar': atendimento.pode_voltar(),
-        'pode_ser_reiniciado': atendimento.pode_ser_reiniciado()
-    }
+    try:
+        return {
+            'id': atendimento.id,
+            'lead_id': atendimento.lead.id if atendimento.lead else None,
+            'lead_nome': atendimento.lead.nome_razaosocial if atendimento.lead else 'N/A',
+            'fluxo_id': atendimento.fluxo.id if atendimento.fluxo else None,
+            'fluxo_nome': atendimento.fluxo.nome if atendimento.fluxo else 'N/A',
+            'historico_contato_id': atendimento.historico_contato.id if atendimento.historico_contato else None,
+            'status': atendimento.status,
+            'status_display': getattr(atendimento, 'get_status_display', lambda: 'N/A')(),
+            'questao_atual': atendimento.questao_atual,
+            'total_questoes': atendimento.total_questoes,
+            'questoes_respondidas': atendimento.questoes_respondidas,
+            'progresso_percentual': getattr(atendimento, 'get_progresso_percentual', lambda: 0)(),
+            'data_inicio': atendimento.data_inicio.isoformat() if atendimento.data_inicio else None,
+            'data_ultima_atividade': atendimento.data_ultima_atividade.isoformat() if atendimento.data_ultima_atividade else None,
+            'data_conclusao': atendimento.data_conclusao.isoformat() if atendimento.data_conclusao else None,
+            'tempo_total': atendimento.tempo_total,
+            'tempo_formatado': getattr(atendimento, 'get_tempo_formatado', lambda: 'N/A')(),
+            'tentativas_atual': atendimento.tentativas_atual,
+            'max_tentativas': atendimento.max_tentativas,
+            'dados_respostas': atendimento.dados_respostas,
+            'respostas_formatadas': getattr(atendimento, 'get_respostas_formatadas', lambda: [])(),
+            'observacoes': atendimento.observacoes,
+            'ip_origem': atendimento.ip_origem,
+            'user_agent': atendimento.user_agent,
+            'dispositivo': atendimento.dispositivo,
+            'id_externo': atendimento.id_externo,
+            'resultado_final': atendimento.resultado_final,
+            'score_qualificacao': atendimento.score_qualificacao,
+            'pode_avancar': getattr(atendimento, 'pode_avancar', lambda: False)(),
+            'pode_voltar': getattr(atendimento, 'pode_voltar', lambda: False)(),
+            'pode_ser_reiniciado': getattr(atendimento, 'pode_ser_reiniciado', lambda: False)()
+        }
+    except Exception as e:
+        return {
+            'id': atendimento.id,
+            'error': f'Erro na serialização: {str(e)}'
+        }
 
+
+# ============================================================================
+# APIs de Atendimento - Fluxos, Questões, Atendimentos e Respostas
+# ============================================================================
 
 @require_http_methods(["GET"])
 def consultar_fluxos_api(request):
@@ -456,7 +492,10 @@ def consultar_respostas_api(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-# Utilitários simples para as APIs de registro/atualização
+# ============================================================================
+# FUNÇÕES UTILITÁRIAS
+# ============================================================================
+
 def _atualizar_resultado_processamento(prospecto, novos_dados):
     """
     Atualiza o resultado_processamento de um prospecto de forma segura
@@ -659,6 +698,10 @@ def _apply_updates(instance, updates):
     instance.save()
     return instance
 
+
+# ============================================================================
+# APIs de Registro e Atualização
+# ============================================================================
 
 @csrf_exempt
 def registrar_lead_api(request):
@@ -1365,6 +1408,10 @@ def atualizar_historico_api(request):
         )
         return JsonResponse({'error': str(e)}, status=400)
 
+# ============================================================================
+# VIEWS DO DASHBOARD
+# ============================================================================
+
 def dashboard_view(request):
     """View principal do dashboard"""
     context = {
@@ -1411,6 +1458,22 @@ def api_swagger_view(request):
     return render(request, 'vendas_web/api_swagger.html', context)
 
 
+def analise_atendimentos_view(request):
+    """View para análise de atendimentos"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/analise_atendimentos.html', context)
+
+
+def relatorio_conversoes_view(request):
+    """View para relatório de conversões"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/relatorio_conversoes.html', context)
+
+
 def api_documentation_view(request):
     """View para servir a documentação da API em markdown"""
     import os
@@ -1430,6 +1493,10 @@ def api_documentation_view(request):
     except FileNotFoundError:
         return HttpResponse("Documentação não encontrada", status=404)
 
+
+# ============================================================================
+# APIs de Dados do Dashboard
+# ============================================================================
 
 def dashboard_data(request):
     """API para dados principais do dashboard"""
@@ -2052,6 +2119,10 @@ def dashboard_ultimas_conversoes(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# ============================================================================
+# APIs de Validação de Vendas
+# ============================================================================
+
 def aprovar_venda_api(request):
     """API para aprovar uma venda"""
     if request.method != 'POST':
@@ -2318,6 +2389,10 @@ def _safe_ordering(ordering_param, allowed_fields):
         return f"-{field}" if desc else field
     return None
 
+
+# ============================================================================
+# APIs de Consulta
+# ============================================================================
 
 def consultar_leads_api(request):
     """API GET de consulta sobre LeadProspecto com filtros e paginação."""

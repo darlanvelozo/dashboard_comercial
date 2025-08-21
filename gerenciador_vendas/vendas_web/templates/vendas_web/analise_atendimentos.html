@@ -1,0 +1,237 @@
+{% extends 'vendas_web/base.html' %}
+
+{% block title %}Análise de Atendimentos - Megalink{% endblock %}
+
+{% block custom_css %}
+<style>
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .analysis-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 14px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.05);
+        margin-bottom: 2rem;
+    }
+
+    .card-header {
+        background: #fff;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+    }
+
+    .card-content {
+        padding: 2rem;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .metric-card {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    .metric-value {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-label {
+        font-size: 1rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .coming-soon {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #666;
+    }
+
+    .coming-soon i {
+        font-size: 4rem;
+        margin-bottom: 2rem;
+        color: #1F3D59;
+    }
+
+    .coming-soon h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: #333;
+    }
+
+    .coming-soon p {
+        font-size: 1rem;
+        line-height: 1.6;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .feature-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 3rem;
+    }
+
+    .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .feature-icon {
+        width: 40px;
+        height: 40px;
+        background: #1F3D59;
+        color: white;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .feature-content h4 {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .feature-content p {
+        color: #666;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header da Página -->
+    <div class="analysis-card">
+        <div class="card-header">
+            <div style="display:flex; align-items:center; gap:.5rem;">
+                <i class="fas fa-chart-line" style="color:#1F3D59"></i>
+                <strong>Análise de Atendimentos</strong>
+            </div>
+        </div>
+        <div class="card-content">
+            <!-- Métricas Principais -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">126</div>
+                    <div class="metric-label">Atendimentos Hoje</div>
+                </div>
+                <div class="metric-card" style="background: linear-gradient(135deg, #1F3D59, #2a4f73);">
+                    <div class="metric-value">89%</div>
+                    <div class="metric-label">Taxa de Sucesso</div>
+                </div>
+                <div class="metric-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                    <div class="metric-value">4.2min</div>
+                    <div class="metric-label">Tempo Médio</div>
+                </div>
+                <div class="metric-card" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                    <div class="metric-value">67</div>
+                    <div class="metric-label">Conversões</div>
+                </div>
+            </div>
+
+            <!-- Seção Coming Soon -->
+            <div class="coming-soon">
+                <i class="fas fa-cogs"></i>
+                <h3>Funcionalidade em Desenvolvimento</h3>
+                <p>
+                    Esta página está sendo desenvolvida para fornecer análises detalhadas dos atendimentos. 
+                    Em breve, você terá acesso a gráficos interativos, relatórios de performance e insights 
+                    avançados sobre a eficácia dos seus atendimentos.
+                </p>
+
+                <!-- Funcionalidades Planejadas -->
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4>Gráficos de Performance</h4>
+                            <p>Visualize tendências de atendimentos, taxas de conversão e métricas de qualidade ao longo do tempo.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4>Análise por Operador</h4>
+                            <p>Compare a performance individual dos atendentes e identifique oportunidades de melhoria.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4>Análise Temporal</h4>
+                            <p>Entenda os padrões de atendimento por horário, dia da semana e períodos específicos.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4>Metas e KPIs</h4>
+                            <p>Defina metas de atendimento e acompanhe o progresso em tempo real com indicadores visuais.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-filter"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4>Filtros Avançados</h4>
+                            <p>Filtre dados por status, origem, tipo de atendimento e outros critérios relevantes.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-file-export"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4>Relatórios Exportáveis</h4>
+                            <p>Exporte relatórios detalhados em PDF e Excel para apresentações e análises offline.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
