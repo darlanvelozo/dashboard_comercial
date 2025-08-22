@@ -1943,22 +1943,33 @@ class AtendimentoFluxo(models.Model):
             return False, "Questão não encontrada"
         
         # Validação se solicitada
+        valido = True
+        mensagem_erro = None
         if validar:
             valido, mensagem_erro = questao.validar_resposta(resposta)
             if not valido:
                 return False, mensagem_erro
         
+        # Verificar se esta questão já foi respondida antes
+        questao_ja_respondida = str(indice_questao) in self.dados_respostas
+        
         # Registrar resposta
         self.dados_respostas[str(indice_questao)] = {
             'resposta': resposta,
             'data_resposta': timezone.now().isoformat(),
-            'valida': True,
-            'mensagem_erro': None
+            'valida': valido,
+            'mensagem_erro': mensagem_erro
         }
         
-        # Atualizar contadores
-        if indice_questao == self.questao_atual:
+        # Atualizar contadores - só incrementar se é a primeira vez que responde esta questão
+        if not questao_ja_respondida:
             self.questoes_respondidas += 1
+        
+        # Recalcular total de questões respondidas baseado nos dados_respostas
+        self.questoes_respondidas = len([
+            k for k, v in self.dados_respostas.items() 
+            if v.get('valida', False) and v.get('resposta') is not None
+        ])
         
         self.save()
         return True, "Resposta registrada com sucesso"

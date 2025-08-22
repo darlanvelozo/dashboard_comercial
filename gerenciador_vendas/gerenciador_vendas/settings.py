@@ -79,17 +79,25 @@ WSGI_APPLICATION = 'gerenciador_vendas.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'venda_automatica_django',
-        'USER': 'admin',
-        'PASSWORD': 'qualidade@trunks.57',
-        'HOST': '187.62.153.52',
-        'PORT': '5432',
-        'OPTIONS': {
-            'options': '-c timezone=America/Sao_Paulo',
-        },
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Configuração PostgreSQL comentada
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'venda_automatica_django',
+#         'USER': 'admin',
+#         'PASSWORD': 'qualidade@trunks.57',
+#         'HOST': '187.62.153.52',
+#         'PORT': '5432',
+#         'OPTIONS': {
+#             'options': '-c timezone=America/Sao_Paulo',
+#         },
+#     }
+# }
 
 
 # Password validation

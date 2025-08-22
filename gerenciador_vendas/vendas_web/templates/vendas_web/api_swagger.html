@@ -139,6 +139,21 @@
         </div>
 
         <div class="info-card">
+            <h3>🤖 APIs N8N</h3>
+            <p>Endpoints específicos para integração com N8N. Permitem controle completo dos fluxos de atendimento.</p>
+            <ul class="endpoints-list">
+                <li class="method-get">GET /api/n8n/lead/buscar/</li>
+                <li class="method-post">POST /api/n8n/lead/criar/</li>
+                <li class="method-get">GET /api/n8n/fluxos/</li>
+                <li class="method-post">POST /api/n8n/atendimento/iniciar/</li>
+                <li class="method-get">GET /api/n8n/atendimento/{id}/consultar/</li>
+                <li class="method-post">POST /api/n8n/atendimento/{id}/responder/</li>
+                <li class="method-post">POST /api/n8n/atendimento/{id}/avancar/</li>
+                <li class="method-post">POST /api/n8n/atendimento/{id}/finalizar/</li>
+            </ul>
+        </div>
+
+        <div class="info-card">
             <h3>🔧 Características Especiais</h3>
             <p>Recursos avançados do sistema:</p>
             <ul style="margin-top: 0.5rem;">
@@ -147,6 +162,9 @@
                 <li>✅ Relacionamentos automáticos via id_hubsoft</li>
                 <li>✅ Suporte a múltiplos formatos de data</li>
                 <li>✅ Validação de dados robusta</li>
+                <li>✅ Integração completa com N8N</li>
+                <li>✅ Contabilização automática de questões</li>
+                <li>✅ Fluxos de atendimento dinâmicos</li>
             </ul>
         </div>
 
@@ -155,8 +173,10 @@
             <p>Links úteis para desenvolvedores:</p>
             <ul style="margin-top: 0.5rem;">
                 <li><a href="{% url 'vendas_web:api_documentation' %}" target="_blank">📖 Documentação Completa</a></li>
+                <li><a href="{% url 'vendas_web:n8n_guide' %}" target="_blank">🤖 Guia N8N</a></li>
                 <li><a href="/admin/" target="_blank">⚙️ Django Admin</a></li>
                 <li><a href="{% url 'vendas_web:dashboard1' %}" target="_blank">📊 Dashboard</a></li>
+                <li><a href="{% url 'vendas_web:analise_atendimentos' %}" target="_blank">📊 Análise de Atendimentos</a></li>
             </ul>
         </div>
     </div>
@@ -212,6 +232,10 @@
                     {
                         "name": "Sistema",
                         "description": "Utilitários do sistema"
+                    },
+                    {
+                        "name": "N8N",
+                        "description": "APIs específicas para integração com N8N"
                     }
                 ],
                 "paths": {
@@ -783,6 +807,349 @@
                                 }
                             }
                         }
+                    },
+                    "/api/n8n/lead/buscar/": {
+                        "get": {
+                            "tags": ["N8N"],
+                            "summary": "Buscar lead por telefone (N8N)",
+                            "description": "API específica para N8N buscar lead por número de telefone",
+                            "parameters": [
+                                {
+                                    "name": "telefone",
+                                    "in": "query",
+                                    "required": true,
+                                    "description": "Número do telefone para busca",
+                                    "schema": {"type": "string"}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Resultado da busca",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NLeadSearchResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/lead/criar/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Criar ou retornar lead existente (N8N)",
+                            "description": "API para N8N criar novo lead ou retornar existente se já houver",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/N8NLeadCreateRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Lead criado ou encontrado",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NLeadCreateResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/fluxos/": {
+                        "get": {
+                            "tags": ["N8N"],
+                            "summary": "Listar fluxos ativos (N8N)",
+                            "description": "API para N8N consultar fluxos de atendimento ativos",
+                            "parameters": [
+                                {
+                                    "name": "tipo",
+                                    "in": "query",
+                                    "description": "Filtrar por tipo de fluxo",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["qualificacao", "vendas", "suporte", "onboarding", "pesquisa", "customizado"]
+                                    }
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Lista de fluxos ativos",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NFluxosResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/iniciar/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Iniciar atendimento (N8N)",
+                            "description": "API para N8N iniciar um novo atendimento com fluxo específico",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/N8NAtendimentoIniciarRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Atendimento iniciado com sucesso",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NAtendimentoIniciarResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/{atendimento_id}/consultar/": {
+                        "get": {
+                            "tags": ["N8N"],
+                            "summary": "Consultar status do atendimento (N8N)",
+                            "description": "API para N8N consultar o status atual de um atendimento",
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Status do atendimento",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NAtendimentoStatusResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/{atendimento_id}/responder/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Registrar resposta de questão (N8N)",
+                            "description": "API para N8N registrar resposta para uma questão específica",
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/N8NResponderQuestaoRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Resposta registrada com sucesso",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NResponderQuestaoResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/{atendimento_id}/avancar/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Avançar para próxima questão (N8N)",
+                            "description": "API para N8N avançar para a próxima questão do fluxo",
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Questão avançada com sucesso",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NAvancarQuestaoResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/{atendimento_id}/finalizar/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Finalizar atendimento (N8N)",
+                            "description": "API para N8N finalizar um atendimento",
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "requestBody": {
+                                "required": false,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/N8NFinalizarAtendimentoRequest"
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Atendimento finalizado com sucesso",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NFinalizarAtendimentoResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/{atendimento_id}/pausar/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Pausar atendimento (N8N)",
+                            "description": "API para N8N pausar um atendimento em andamento",
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "requestBody": {
+                                "required": false,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "motivo_pausa": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Atendimento pausado com sucesso"
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/atendimento/{atendimento_id}/retomar/": {
+                        "post": {
+                            "tags": ["N8N"],
+                            "summary": "Retomar atendimento (N8N)",
+                            "description": "API para N8N retomar um atendimento pausado",
+                            "parameters": [
+                                {
+                                    "name": "atendimento_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "requestBody": {
+                                "required": false,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "observacoes_retomada": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Atendimento retomado com sucesso"
+                                }
+                            }
+                        }
+                    },
+                    "/api/n8n/fluxo/{fluxo_id}/questao/{indice_questao}/": {
+                        "get": {
+                            "tags": ["N8N"],
+                            "summary": "Obter questão específica (N8N)",
+                            "description": "API para N8N obter detalhes de uma questão específica de um fluxo",
+                            "parameters": [
+                                {
+                                    "name": "fluxo_id",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                },
+                                {
+                                    "name": "indice_questao",
+                                    "in": "path",
+                                    "required": true,
+                                    "schema": {"type": "integer"}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "Detalhes da questão",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "$ref": "#/components/schemas/N8NQuestaoResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 "components": {
@@ -1114,6 +1481,237 @@
                                     "type": "string",
                                     "example": "Campos obrigatórios ausentes: nome_razaosocial, telefone"
                                 }
+                            }
+                        },
+                        "N8NLeadSearchResponse": {
+                            "type": "object",
+                            "properties": {
+                                "encontrado": {"type": "boolean"},
+                                "total_encontrados": {"type": "integer"},
+                                "leads": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "nome": {"type": "string"},
+                                            "email": {"type": "string"},
+                                            "telefone": {"type": "string"},
+                                            "origem": {"type": "string"},
+                                            "status_api": {"type": "string"},
+                                            "data_cadastro": {"type": "string"},
+                                            "score_qualificacao": {"type": "integer"},
+                                            "total_contatos": {"type": "integer"},
+                                            "total_atendimentos": {"type": "integer"}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "N8NLeadCreateRequest": {
+                            "type": "object",
+                            "required": ["nome_razaosocial", "telefone"],
+                            "properties": {
+                                "nome_razaosocial": {"type": "string", "example": "João Silva"},
+                                "telefone": {"type": "string", "example": "5511999887766"},
+                                "email": {"type": "string", "example": "joao@email.com"},
+                                "origem": {"type": "string", "enum": ["site", "facebook", "instagram", "google", "whatsapp", "indicacao", "telefone", "email", "outros"], "default": "whatsapp"},
+                                "canal_entrada": {"type": "string", "default": "whatsapp"},
+                                "tipo_entrada": {"type": "string", "enum": ["contato_whatsapp", "cadastro_site", "telefone", "formulario", "importacao", "api_externa"], "default": "contato_whatsapp"},
+                                "cpf_cnpj": {"type": "string"},
+                                "endereco": {"type": "string"},
+                                "cidade": {"type": "string"},
+                                "estado": {"type": "string"},
+                                "cep": {"type": "string"},
+                                "observacoes": {"type": "string"},
+                                "criar_historico_contato": {"type": "boolean", "default": true}
+                            }
+                        },
+                        "N8NLeadCreateResponse": {
+                            "type": "object",
+                            "properties": {
+                                "lead_existente": {"type": "boolean"},
+                                "lead_criado": {"type": "boolean"},
+                                "lead_id": {"type": "integer"},
+                                "lead": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "integer"},
+                                        "nome": {"type": "string"},
+                                        "email": {"type": "string"},
+                                        "telefone": {"type": "string"},
+                                        "origem": {"type": "string"},
+                                        "status_api": {"type": "string"},
+                                        "data_cadastro": {"type": "string"}
+                                    }
+                                }
+                            }
+                        },
+                        "N8NFluxosResponse": {
+                            "type": "object",
+                            "properties": {
+                                "fluxos": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "nome": {"type": "string"},
+                                            "descricao": {"type": "string"},
+                                            "tipo_fluxo": {"type": "string"},
+                                            "total_questoes": {"type": "integer"},
+                                            "max_tentativas": {"type": "integer"},
+                                            "tempo_limite_minutos": {"type": "integer"},
+                                            "permite_pular_questoes": {"type": "boolean"},
+                                            "estatisticas": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "total_atendimentos": {"type": "integer"},
+                                                    "atendimentos_completados": {"type": "integer"},
+                                                    "taxa_completacao": {"type": "number"},
+                                                    "tempo_medio_segundos": {"type": "number"}
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "total": {"type": "integer"}
+                            }
+                        },
+                        "N8NAtendimentoIniciarRequest": {
+                            "type": "object",
+                            "required": ["lead_id", "fluxo_id"],
+                            "properties": {
+                                "lead_id": {"type": "integer", "example": 123},
+                                "fluxo_id": {"type": "integer", "example": 1},
+                                "ip_origem": {"type": "string", "example": "192.168.1.100"},
+                                "user_agent": {"type": "string", "example": "N8N-Bot/1.0"},
+                                "dispositivo": {"type": "string", "example": "whatsapp"},
+                                "observacoes": {"type": "string", "example": "Atendimento iniciado via N8N"}
+                            }
+                        },
+                        "N8NAtendimentoIniciarResponse": {
+                            "type": "object",
+                            "properties": {
+                                "atendimento_id": {"type": "integer"},
+                                "lead_id": {"type": "integer"},
+                                "fluxo_id": {"type": "integer"},
+                                "status": {"type": "string"},
+                                "questao_atual": {"type": "integer"},
+                                "total_questoes": {"type": "integer"},
+                                "progresso_percentual": {"type": "number"},
+                                "primeira_questao": {"$ref": "#/components/schemas/N8NQuestaoResponse"},
+                                "data_inicio": {"type": "string"}
+                            }
+                        },
+                        "N8NAtendimentoStatusResponse": {
+                            "type": "object",
+                            "properties": {
+                                "atendimento_id": {"type": "integer"},
+                                "lead_id": {"type": "integer"},
+                                "lead_nome": {"type": "string"},
+                                "lead_telefone": {"type": "string"},
+                                "fluxo_id": {"type": "integer"},
+                                "fluxo_nome": {"type": "string"},
+                                "status": {"type": "string"},
+                                "questao_atual": {"type": "integer"},
+                                "total_questoes": {"type": "integer"},
+                                "questoes_respondidas": {"type": "integer"},
+                                "progresso_percentual": {"type": "number"},
+                                "questao_atual_obj": {"$ref": "#/components/schemas/N8NQuestaoResponse"},
+                                "proxima_questao": {"$ref": "#/components/schemas/N8NQuestaoResponse"},
+                                "pode_avancar": {"type": "boolean"},
+                                "pode_voltar": {"type": "boolean"},
+                                "data_inicio": {"type": "string"},
+                                "data_ultima_atividade": {"type": "string"},
+                                "respostas": {"type": "object"}
+                            }
+                        },
+                        "N8NResponderQuestaoRequest": {
+                            "type": "object",
+                            "required": ["resposta"],
+                            "properties": {
+                                "resposta": {"type": "string", "example": "João Silva"},
+                                "indice_questao": {"type": "integer", "example": 1},
+                                "validar": {"type": "boolean", "default": true},
+                                "criar_registro_detalhado": {"type": "boolean", "default": false},
+                                "ip_origem": {"type": "string"},
+                                "user_agent": {"type": "string"},
+                                "dados_extras": {"type": "object"}
+                            }
+                        },
+                        "N8NResponderQuestaoResponse": {
+                            "type": "object",
+                            "properties": {
+                                "sucesso": {"type": "boolean"},
+                                "mensagem": {"type": "string"},
+                                "atendimento_id": {"type": "integer"},
+                                "questao_respondida": {"type": "integer"},
+                                "questao_atual": {"type": "integer"},
+                                "questoes_respondidas": {"type": "integer"},
+                                "progresso_percentual": {"type": "number"},
+                                "questao_atual_obj": {"$ref": "#/components/schemas/N8NQuestaoResponse"},
+                                "proxima_questao": {"$ref": "#/components/schemas/N8NQuestaoResponse"},
+                                "pode_avancar": {"type": "boolean"},
+                                "atendimento_status": {"type": "string"}
+                            }
+                        },
+                        "N8NAvancarQuestaoResponse": {
+                            "type": "object",
+                            "properties": {
+                                "sucesso": {"type": "boolean"},
+                                "atendimento_id": {"type": "integer"},
+                                "questao_atual": {"type": "integer"},
+                                "questoes_respondidas": {"type": "integer"},
+                                "progresso_percentual": {"type": "number"},
+                                "atendimento_status": {"type": "string"},
+                                "proxima_questao": {"$ref": "#/components/schemas/N8NQuestaoResponse"},
+                                "finalizado": {"type": "boolean"},
+                                "data_conclusao": {"type": "string"}
+                            }
+                        },
+                        "N8NFinalizarAtendimentoRequest": {
+                            "type": "object",
+                            "properties": {
+                                "sucesso": {"type": "boolean", "default": true},
+                                "observacoes": {"type": "string", "example": "Atendimento finalizado com sucesso"}
+                            }
+                        },
+                        "N8NFinalizarAtendimentoResponse": {
+                            "type": "object",
+                            "properties": {
+                                "sucesso": {"type": "boolean"},
+                                "atendimento_id": {"type": "integer"},
+                                "status": {"type": "string"},
+                                "data_conclusao": {"type": "string"},
+                                "tempo_total": {"type": "integer"},
+                                "tempo_formatado": {"type": "string"},
+                                "score_qualificacao": {"type": "integer"},
+                                "questoes_respondidas": {"type": "integer"},
+                                "total_questoes": {"type": "integer"},
+                                "progresso_percentual": {"type": "number"}
+                            }
+                        },
+                        "N8NQuestaoResponse": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "integer"},
+                                "indice": {"type": "integer"},
+                                "titulo": {"type": "string"},
+                                "descricao": {"type": "string"},
+                                "tipo_questao": {"type": "string", "enum": ["texto", "numero", "email", "telefone", "cpf_cnpj", "cep", "endereco", "select", "multiselect", "data", "hora", "data_hora", "boolean", "escala", "arquivo"]},
+                                "tipo_validacao": {"type": "string", "enum": ["obrigatoria", "opcional", "condicional"]},
+                                "opcoes_resposta": {"type": "array", "items": {"type": "string"}},
+                                "resposta_padrao": {"type": "string"},
+                                "regex_validacao": {"type": "string"},
+                                "tamanho_minimo": {"type": "integer"},
+                                "tamanho_maximo": {"type": "integer"},
+                                "valor_minimo": {"type": "number"},
+                                "valor_maximo": {"type": "number"},
+                                "permite_voltar": {"type": "boolean"},
+                                "permite_editar": {"type": "boolean"},
+                                "questao_dependencia_id": {"type": "integer"},
+                                "valor_dependencia": {"type": "string"}
                             }
                         }
                     }

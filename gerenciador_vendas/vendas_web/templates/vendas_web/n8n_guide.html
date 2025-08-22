@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia de Integração N8N - APIs Dashboard Comercial</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #1F3D59, #2a4f73);
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+        }
+        .feature-card {
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            margin-bottom: 1.5rem;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .endpoint-card {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .method-get { border-left-color: #28a745; }
+        .method-post { border-left-color: #007bff; }
+        .method-put { border-left-color: #ffc107; }
+        .method-delete { border-left-color: #dc3545; }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #1F3D59;
+        }
+        .toc {
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        .flow-step {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        .flow-step::before {
+            content: attr(data-step);
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-4 fw-bold">🤖 Guia de Integração N8N</h1>
+                    <p class="lead">Documentação completa das APIs específicas para controle de fluxos de atendimento via N8N</p>
+                </div>
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-robot fa-5x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar com TOC -->
+            <div class="col-lg-3">
+                <div class="toc">
+                    <nav class="nav nav-pills flex-column">
+                        <a class="nav-link active" href="#overview">🚀 Visão Geral</a>
+                        <a class="nav-link" href="#fluxo-basico">📋 Fluxo Básico</a>
+                        <a class="nav-link" href="#apis-leads">👤 APIs de Leads</a>
+                        <a class="nav-link" href="#apis-fluxos">🔄 APIs de Fluxos</a>
+                        <a class="nav-link" href="#apis-atendimento">💬 APIs de Atendimento</a>
+                        <a class="nav-link" href="#controle-fluxo">⚙️ Controle de Fluxo</a>
+                        <a class="nav-link" href="#exemplo-completo">🎯 Exemplo Completo</a>
+                        <a class="nav-link" href="#tratamento-erros">🛡️ Tratamento de Erros</a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Conteúdo Principal -->
+            <div class="col-lg-9">
+                <!-- Overview -->
+                <section id="overview" class="mb-5">
+                    <h2><i class="fas fa-info-circle text-primary"></i> Visão Geral</h2>
+                    <p class="lead">As APIs N8N permitem controle completo dos fluxos de atendimento, desde a criação de leads até a finalização dos atendimentos.</p>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card feature-card">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                                    <h5>Gerenciamento de Leads</h5>
+                                    <p>Buscar e criar leads automaticamente</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card feature-card">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-sitemap fa-3x text-success mb-3"></i>
+                                    <h5>Controle de Fluxos</h5>
+                                    <p>Gerenciar fluxos de atendimento dinâmicos</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card feature-card">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-3x text-warning mb-3"></i>
+                                    <h5>Rastreamento Completo</h5>
+                                    <p>Acompanhar progresso em tempo real</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Fluxo Básico -->
+                <section id="fluxo-basico" class="mb-5">
+                    <h2><i class="fas fa-play-circle text-success"></i> Fluxo Básico de Uso</h2>
+                    <p>Sequência típica de operações para um atendimento completo:</p>
+                    
+                    <div class="flow-step" data-step="1">
+                        <h5><i class="fas fa-search text-primary"></i> Buscar ou Criar Lead</h5>
+                        <div class="endpoint-card method-get">
+                            <code>GET /api/n8n/lead/buscar/?telefone=5511999887766</code>
+                        </div>
+                        <p>Se não existir:</p>
+                        <div class="endpoint-card method-post">
+                            <code>POST /api/n8n/lead/criar/</code>
+                        </div>
+                    </div>
+
+                    <div class="flow-step" data-step="2">
+                        <h5><i class="fas fa-list text-info"></i> Listar Fluxos Disponíveis</h5>
+                        <div class="endpoint-card method-get">
+                            <code>GET /api/n8n/fluxos/?tipo=vendas</code>
+                        </div>
+                    </div>
+
+                    <div class="flow-step" data-step="3">
+                        <h5><i class="fas fa-play text-success"></i> Iniciar Atendimento</h5>
+                        <div class="endpoint-card method-post">
+                            <code>POST /api/n8n/atendimento/iniciar/</code>
+                        </div>
+                    </div>
+
+                    <div class="flow-step" data-step="4">
+                        <h5><i class="fas fa-comments text-warning"></i> Loop de Questões</h5>
+                        <p>Para cada questão:</p>
+                        <div class="endpoint-card method-get">
+                            <code>GET /api/n8n/atendimento/{id}/consultar/</code>
+                        </div>
+                        <div class="endpoint-card method-post">
+                            <code>POST /api/n8n/atendimento/{id}/responder/</code>
+                        </div>
+                        <div class="endpoint-card method-post">
+                            <code>POST /api/n8n/atendimento/{id}/avancar/</code>
+                        </div>
+                    </div>
+
+                    <div class="flow-step" data-step="5">
+                        <h5><i class="fas fa-check-circle text-success"></i> Finalizar Atendimento</h5>
+                        <div class="endpoint-card method-post">
+                            <code>POST /api/n8n/atendimento/{id}/finalizar/</code>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- APIs de Leads -->
+                <section id="apis-leads" class="mb-5">
+                    <h2><i class="fas fa-user-plus text-primary"></i> APIs de Leads</h2>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-search"></i> Buscar Lead por Telefone</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="endpoint-card method-get">
+                                <strong>GET</strong> <code>/api/n8n/lead/buscar/</code>
+                            </div>
+                            <p><strong>Parâmetros:</strong></p>
+                            <ul>
+                                <li><code>telefone</code> (obrigatório): Número do telefone</li>
+                            </ul>
+                            <p><strong>Exemplo de Resposta:</strong></p>
+                            <div class="code-block">
+<pre><code>{
+  "encontrado": true,
+  "total_encontrados": 1,
+  "leads": [{
+    "id": 123,
+    "nome": "João Silva",
+    "email": "joao@email.com",
+    "telefone": "5511999887766",
+    "origem": "whatsapp",
+    "status_api": "pendente",
+    "score_qualificacao": 7,
+    "total_contatos": 3,
+    "total_atendimentos": 1
+  }]
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-user-plus"></i> Criar Lead</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="endpoint-card method-post">
+                                <strong>POST</strong> <code>/api/n8n/lead/criar/</code>
+                            </div>
+                            <p><strong>Exemplo de Request:</strong></p>
+                            <div class="code-block">
+<pre><code>{
+  "nome_razaosocial": "João Silva",
+  "telefone": "5511999887766",
+  "email": "joao@email.com",
+  "origem": "whatsapp",
+  "canal_entrada": "whatsapp",
+  "tipo_entrada": "contato_whatsapp",
+  "observacoes": "Cliente interessado em plano premium"
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- APIs de Fluxos -->
+                <section id="apis-fluxos" class="mb-5">
+                    <h2><i class="fas fa-sitemap text-info"></i> APIs de Fluxos</h2>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-list"></i> Listar Fluxos Ativos</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="endpoint-card method-get">
+                                <strong>GET</strong> <code>/api/n8n/fluxos/</code>
+                            </div>
+                            <p><strong>Parâmetros opcionais:</strong></p>
+                            <ul>
+                                <li><code>tipo</code>: Filtrar por tipo (vendas, qualificacao, suporte, etc.)</li>
+                            </ul>
+                            <p><strong>Exemplo de Resposta:</strong></p>
+                            <div class="code-block">
+<pre><code>{
+  "fluxos": [{
+    "id": 1,
+    "nome": "Qualificação de Lead - Internet",
+    "descricao": "Fluxo para qualificar leads interessados em planos de internet",
+    "tipo_fluxo": "qualificacao",
+    "total_questoes": 5,
+    "max_tentativas": 3,
+    "estatisticas": {
+      "total_atendimentos": 150,
+      "atendimentos_completados": 120,
+      "taxa_completacao": 80.0
+    }
+  }],
+  "total": 1
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- APIs de Atendimento -->
+                <section id="apis-atendimento" class="mb-5">
+                    <h2><i class="fas fa-comments text-warning"></i> APIs de Atendimento</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-play"></i> Iniciar Atendimento</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-post">
+                                        <strong>POST</strong> <code>/api/n8n/atendimento/iniciar/</code>
+                                    </div>
+                                    <div class="code-block">
+<pre><code>{
+  "lead_id": 123,
+  "fluxo_id": 1,
+  "dispositivo": "whatsapp"
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-info-circle"></i> Consultar Status</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-get">
+                                        <strong>GET</strong> <code>/api/n8n/atendimento/{id}/consultar/</code>
+                                    </div>
+                                    <p>Retorna status atual, questão atual, progresso, etc.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-edit"></i> Registrar Resposta</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-post">
+                                        <strong>POST</strong> <code>/api/n8n/atendimento/{id}/responder/</code>
+                                    </div>
+                                    <div class="code-block">
+<pre><code>{
+  "resposta": "João Silva",
+  "indice_questao": 1,
+  "validar": true
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-arrow-right"></i> Avançar Questão</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-post">
+                                        <strong>POST</strong> <code>/api/n8n/atendimento/{id}/avancar/</code>
+                                    </div>
+                                    <p>Avança para a próxima questão ou finaliza o fluxo.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Controle de Fluxo -->
+                <section id="controle-fluxo" class="mb-5">
+                    <h2><i class="fas fa-cogs text-secondary"></i> Controle de Fluxo</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-check-circle"></i> Finalizar</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-post">
+                                        <code>/api/n8n/atendimento/{id}/finalizar/</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-pause-circle"></i> Pausar</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-post">
+                                        <code>/api/n8n/atendimento/{id}/pausar/</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-play-circle"></i> Retomar</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="endpoint-card method-post">
+                                        <code>/api/n8n/atendimento/{id}/retomar/</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Exemplo Completo -->
+                <section id="exemplo-completo" class="mb-5">
+                    <h2><i class="fas fa-code text-success"></i> Exemplo Completo</h2>
+                    <p>Fluxo completo de um atendimento N8N:</p>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="code-block">
+<pre><code>// 1. Buscar Lead
+GET /api/n8n/lead/buscar/?telefone=5511999887766
+
+// 2. Se não existir, criar
+POST /api/n8n/lead/criar/
+{
+  "nome_razaosocial": "João Silva",
+  "telefone": "5511999887766",
+  "origem": "whatsapp"
+}
+
+// 3. Listar fluxos
+GET /api/n8n/fluxos/?tipo=vendas
+
+// 4. Iniciar atendimento
+POST /api/n8n/atendimento/iniciar/
+{
+  "lead_id": 123,
+  "fluxo_id": 1
+}
+
+// 5. Loop para cada questão
+GET /api/n8n/atendimento/456/consultar/
+POST /api/n8n/atendimento/456/responder/
+{
+  "resposta": "João Silva",
+  "indice_questao": 1
+}
+POST /api/n8n/atendimento/456/avancar/
+
+// 6. Finalizar
+POST /api/n8n/atendimento/456/finalizar/
+{
+  "sucesso": true,
+  "observacoes": "Cliente qualificado com sucesso"
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tratamento de Erros -->
+                <section id="tratamento-erros" class="mb-5">
+                    <h2><i class="fas fa-shield-alt text-danger"></i> Tratamento de Erros</h2>
+                    
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle"></i> Códigos de Status HTTP</h5>
+                        <ul>
+                            <li><strong>200:</strong> Sucesso</li>
+                            <li><strong>201:</strong> Criado com sucesso</li>
+                            <li><strong>400:</strong> Erro de validação/dados inválidos</li>
+                            <li><strong>404:</strong> Recurso não encontrado</li>
+                            <li><strong>500:</strong> Erro interno do servidor</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Exemplo de Resposta de Erro</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="code-block">
+<pre><code>{
+  "error": "Campo telefone é obrigatório"
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Funcionalidades Importantes -->
+                <section class="mb-5">
+                    <h2><i class="fas fa-star text-warning"></i> Funcionalidades Importantes</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="alert alert-success">
+                                <h6><i class="fas fa-check-circle"></i> Contabilização Automática</h6>
+                                <p>As questões respondidas são contabilizadas automaticamente, evitando duplicação e garantindo progresso preciso.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-clipboard-list"></i> Logs de Auditoria</h6>
+                                <p>Todas as operações são registradas automaticamente para auditoria e debugging.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-shield-alt"></i> Validação Robusta</h6>
+                                <p>Respostas são validadas conforme regras definidas nas questões (obrigatórias, formato, tamanho, etc.).</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-primary">
+                                <h6><i class="fas fa-chart-line"></i> Tempo Real</h6>
+                                <p>Status e progresso são atualizados em tempo real, permitindo acompanhamento preciso.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p>&copy; 2024 Dashboard Comercial - APIs N8N. Documentação atualizada.</p>
+            <p><a href="/api/docs/" class="text-light">📖 Documentação Swagger</a> | <a href="/admin/" class="text-light">⚙️ Django Admin</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Smooth scrolling para links do TOC
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                
+                // Atualizar link ativo
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Destacar seção ativa durante scroll
+        window.addEventListener('scroll', function() {
+            let current = '';
+            document.querySelectorAll('section[id]').forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 200) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

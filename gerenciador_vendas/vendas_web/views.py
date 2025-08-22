@@ -5,11 +5,17 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Count, Sum, Avg, Q
+from django.db import models
 from datetime import datetime, timedelta
 import json
 import traceback
+import logging
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Models
 from .models import (
@@ -1462,6 +1468,14 @@ def api_swagger_view(request):
     return render(request, 'vendas_web/api_swagger.html', context)
 
 
+def n8n_guide_view(request):
+    """View para o guia de integração N8N"""
+    context = {
+        'user': request.user if request.user.is_authenticated else None
+    }
+    return render(request, 'vendas_web/n8n_guide.html', context)
+
+
 def analise_atendimentos_view(request):
     """View para análise de atendimentos"""
     context = {
@@ -2845,3 +2859,585 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+@login_required
+def api_analise_atendimentos_data(request):
+    """API para dados da análise de atendimentos"""
+    try:
+        from django.db.models import Count, Avg, Q, F
+        from datetime import datetime, timedelta
+        
+        # Parâmetros de filtro
+        data_inicio = request.GET.get('data_inicio')
+        data_fim = request.GET.get('data_fim')
+        fluxo_id = request.GET.get('fluxo_id')
+        status_filter = request.GET.get('status')
+        
+        # Query base
+        atendimentos = AtendimentoFluxo.objects.all()
+        historicos = HistoricoContato.objects.all()
+        
+        # Aplicar filtros de data
+        if data_inicio:
+            try:
+                data_inicio_obj = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                atendimentos = atendimentos.filter(data_inicio__date__gte=data_inicio_obj)
+                historicos = historicos.filter(data_hora_contato__date__gte=data_inicio_obj)
+            except ValueError:
+                pass
+        
+        if data_fim:
+            try:
+                data_fim_obj = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                atendimentos = atendimentos.filter(data_inicio__date__lte=data_fim_obj)
+                historicos = historicos.filter(data_hora_contato__date__lte=data_fim_obj)
+            except ValueError:
+                pass
+        
+        # Aplicar filtro de fluxo
+        if fluxo_id:
+            try:
+                atendimentos = atendimentos.filter(fluxo_id=int(fluxo_id))
+            except ValueError:
+                pass
+        
+        # Aplicar filtro de status
+        if status_filter:
+            atendimentos = atendimentos.filter(status=status_filter)
+        
+        # Métricas principais
+        total_atendimentos = atendimentos.count()
+        atendimentos_completados = atendimentos.filter(status='completado').count()
+        atendimentos_abandonados = atendimentos.filter(status='abandonado').count()
+        atendimentos_em_andamento = atendimentos.filter(status__in=['iniciado', 'em_andamento']).count()
+        
+        # Calcular taxas
+        if total_atendimentos > 0:
+            taxa_completude = round((atendimentos_completados / total_atendimentos) * 100, 1)
+            taxa_abandono = round((atendimentos_abandonados / total_atendimentos) * 100, 1)
+        else:
+            taxa_completude = 0
+            taxa_abandono = 0
+        
+        # Tempo médio
+        tempo_medio = atendimentos.filter(
+            tempo_total__isnull=False
+        ).aggregate(
+            tempo_medio=Avg('tempo_total')
+        )['tempo_medio'] or 0
+        
+        # Formatação do tempo médio
+        if tempo_medio > 0:
+            if tempo_medio < 60:
+                tempo_medio_formatado = f"{int(tempo_medio)}s"
+            elif tempo_medio < 3600:
+                minutos = int(tempo_medio // 60)
+                segundos = int(tempo_medio % 60)
+                tempo_medio_formatado = f"{minutos}m {segundos}s"
+            else:
+                horas = int(tempo_medio // 3600)
+                minutos = int((tempo_medio % 3600) // 60)
+                tempo_medio_formatado = f"{horas}h {minutos}m"
+        else:
+            tempo_medio_formatado = "0s"
+        
+        # Dados para gráficos - últimos 7 dias
+        data_fim_chart = datetime.now().date()
+        data_inicio_chart = data_fim_chart - timedelta(days=6)
+        
+        chart_data = []
+        for i in range(7):
+            data_chart = data_inicio_chart + timedelta(days=i)
+            atendimentos_dia = atendimentos.filter(data_inicio__date=data_chart).count()
+            completados_dia = atendimentos.filter(
+                data_inicio__date=data_chart,
+                status='completado'
+            ).count()
+            
+            chart_data.append({
+                'date': data_chart.strftime('%d/%m'),
+                'atendimentos': atendimentos_dia,
+                'completados': completados_dia
+            })
+        
+        # Distribuição por status
+        status_distribution = atendimentos.values('status').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # Distribuição por fluxo
+        fluxo_distribution = atendimentos.select_related('fluxo').values(
+            'fluxo__nome'
+        ).annotate(
+            count=Count('id')
+        ).order_by('-count')[:10]
+        
+        # Score médio de qualificação
+        score_medio = atendimentos.filter(
+            score_qualificacao__isnull=False
+        ).aggregate(
+            score_medio=Avg('score_qualificacao')
+        )['score_medio'] or 0
+        
+        # Dados de histórico de contatos
+        total_contatos = historicos.count()
+        contatos_sucesso = historicos.filter(sucesso=True).count()
+        contatos_convertidos = historicos.filter(converteu_lead=True).count()
+        vendas_confirmadas = historicos.filter(converteu_venda=True).count()
+        
+        # Taxa de conversão de contatos
+        if total_contatos > 0:
+            taxa_conversao_contatos = round((contatos_convertidos / total_contatos) * 100, 1)
+            taxa_vendas = round((vendas_confirmadas / total_contatos) * 100, 1)
+        else:
+            taxa_conversao_contatos = 0
+            taxa_vendas = 0
+        
+        response_data = {
+            'metricas_principais': {
+                'total_atendimentos': total_atendimentos,
+                'atendimentos_completados': atendimentos_completados,
+                'atendimentos_abandonados': atendimentos_abandonados,
+                'atendimentos_em_andamento': atendimentos_em_andamento,
+                'taxa_completude': taxa_completude,
+                'taxa_abandono': taxa_abandono,
+                'tempo_medio_segundos': round(tempo_medio, 2),
+                'tempo_medio_formatado': tempo_medio_formatado,
+                'score_medio_qualificacao': round(score_medio, 1),
+            },
+            'metricas_contatos': {
+                'total_contatos': total_contatos,
+                'contatos_sucesso': contatos_sucesso,
+                'contatos_convertidos': contatos_convertidos,
+                'vendas_confirmadas': vendas_confirmadas,
+                'taxa_conversao_contatos': taxa_conversao_contatos,
+                'taxa_vendas': taxa_vendas,
+            },
+            'graficos': {
+                'evolucao_7_dias': chart_data,
+                'distribuicao_status': list(status_distribution),
+                'distribuicao_fluxo': list(fluxo_distribution),
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Erro na API de análise de atendimentos: {str(e)}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({
+            'error': f'Erro ao carregar dados de análise: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def api_analise_atendimentos_fluxos(request):
+    """API para listar fluxos disponíveis para filtro"""
+    try:
+        fluxos = FluxoAtendimento.objects.filter(ativo=True).values(
+            'id', 'nome', 'tipo_fluxo'
+        ).order_by('nome')
+        
+        fluxos_data = []
+        for fluxo in fluxos:
+            total_atendimentos = AtendimentoFluxo.objects.filter(fluxo_id=fluxo['id']).count()
+            fluxos_data.append({
+                'id': fluxo['id'],
+                'nome': fluxo['nome'],
+                'tipo_fluxo': fluxo['tipo_fluxo'],
+                'total_atendimentos': total_atendimentos
+            })
+        
+        return JsonResponse({
+            'fluxos': fluxos_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Erro ao carregar fluxos: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def api_analise_detalhada_atendimentos(request):
+    """API para dados detalhados de atendimentos com paginação"""
+    try:
+        from django.core.paginator import Paginator
+        
+        # Parâmetros
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 20)), 100)
+        
+        # Filtros
+        data_inicio = request.GET.get('data_inicio')
+        data_fim = request.GET.get('data_fim')
+        fluxo_id = request.GET.get('fluxo_id')
+        status_filter = request.GET.get('status')
+        search = request.GET.get('search', '').strip()
+        
+        # Query base
+        atendimentos = AtendimentoFluxo.objects.select_related('lead', 'fluxo').all()
+        
+        # Aplicar filtros
+        if data_inicio:
+            try:
+                data_inicio_obj = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                atendimentos = atendimentos.filter(data_inicio__date__gte=data_inicio_obj)
+            except ValueError:
+                pass
+        
+        if data_fim:
+            try:
+                data_fim_obj = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                atendimentos = atendimentos.filter(data_inicio__date__lte=data_fim_obj)
+            except ValueError:
+                pass
+        
+        if fluxo_id:
+            try:
+                atendimentos = atendimentos.filter(fluxo_id=int(fluxo_id))
+            except ValueError:
+                pass
+        
+        if status_filter:
+            atendimentos = atendimentos.filter(status=status_filter)
+        
+        if search:
+            atendimentos = atendimentos.filter(
+                Q(lead__nome_razaosocial__icontains=search) |
+                Q(lead__telefone__icontains=search) |
+                Q(lead__email__icontains=search) |
+                Q(fluxo__nome__icontains=search)
+            )
+        
+        # Ordenação
+        atendimentos = atendimentos.order_by('-data_inicio')
+        
+        # Paginação
+        paginator = Paginator(atendimentos, per_page)
+        page_obj = paginator.get_page(page)
+        
+        # Serializar dados
+        atendimentos_data = []
+        for atendimento in page_obj:
+            atendimentos_data.append({
+                'id': atendimento.id,
+                'lead': {
+                    'id': atendimento.lead.id,
+                    'nome': atendimento.lead.nome_razaosocial,
+                    'telefone': atendimento.lead.telefone,
+                    'email': atendimento.lead.email or '',
+                },
+                'fluxo': {
+                    'id': atendimento.fluxo.id,
+                    'nome': atendimento.fluxo.nome,
+                    'tipo': atendimento.fluxo.tipo_fluxo,
+                },
+                'status': atendimento.status,
+                'status_display': atendimento.get_status_display(),
+                'data_inicio': atendimento.data_inicio.strftime('%d/%m/%Y %H:%M'),
+                'data_conclusao': atendimento.data_conclusao.strftime('%d/%m/%Y %H:%M') if atendimento.data_conclusao else None,
+                'progresso_percentual': atendimento.get_progresso_percentual(),
+                'questao_atual': atendimento.questao_atual,
+                'total_questoes': atendimento.total_questoes,
+                'tempo_total': atendimento.get_tempo_formatado(),
+                'score_qualificacao': atendimento.score_qualificacao,
+                'observacoes': atendimento.observacoes or ''
+            })
+        
+        return JsonResponse({
+            'atendimentos': atendimentos_data,
+            'total': paginator.count,
+            'page': page,
+            'pages': paginator.num_pages,
+            'per_page': per_page
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Erro ao carregar atendimentos detalhados: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def api_jornada_cliente_completa(request):
+    """API para obter jornada completa de um cliente (lead + histórico + atendimentos)"""
+    try:
+        lead_id = request.GET.get('lead_id')
+        atendimento_id = request.GET.get('atendimento_id')
+        
+        if not lead_id and not atendimento_id:
+            return JsonResponse({
+                'error': 'É necessário informar lead_id ou atendimento_id'
+            }, status=400)
+        
+        # Buscar lead
+        if lead_id:
+            try:
+                lead = LeadProspecto.objects.get(id=lead_id)
+            except LeadProspecto.DoesNotExist:
+                return JsonResponse({'error': 'Lead não encontrado'}, status=404)
+        else:
+            try:
+                atendimento = AtendimentoFluxo.objects.select_related('lead').get(id=atendimento_id)
+                lead = atendimento.lead
+            except AtendimentoFluxo.DoesNotExist:
+                return JsonResponse({'error': 'Atendimento não encontrado'}, status=404)
+        
+        # Buscar todos os contatos relacionados
+        historicos = HistoricoContato.objects.filter(
+            models.Q(lead=lead) | models.Q(telefone=lead.telefone)
+        ).order_by('data_hora_contato')
+        
+        # Buscar todos os atendimentos de fluxo
+        atendimentos = AtendimentoFluxo.objects.filter(lead=lead).select_related(
+            'fluxo', 'historico_contato'
+        ).order_by('data_inicio')
+        
+        # Serializar dados do lead
+        lead_data = {
+            'id': lead.id,
+            'nome': lead.nome_razaosocial,
+            'email': lead.email,
+            'telefone': lead.telefone,
+            'empresa': lead.empresa,
+            'valor': lead.get_valor_formatado(),
+            'origem': lead.origem,
+            'data_cadastro': lead.data_cadastro.strftime('%d/%m/%Y %H:%M'),
+            'status_api': lead.status_api,
+            'score_qualificacao': lead.score_qualificacao,
+            'tentativas_contato': lead.tentativas_contato,
+            'data_ultimo_contato': lead.data_ultimo_contato.strftime('%d/%m/%Y %H:%M') if lead.data_ultimo_contato else None,
+            'observacoes': lead.observacoes,
+            'ativo': lead.ativo,
+        }
+        
+        # Serializar histórico de contatos
+        historicos_data = []
+        for historico in historicos:
+            historicos_data.append({
+                'id': historico.id,
+                'telefone': historico.telefone,
+                'data_hora': historico.data_hora_contato.strftime('%d/%m/%Y %H:%M:%S'),
+                'status': historico.status,
+                'status_display': historico.get_status_display(),
+                'nome_contato': historico.nome_contato,
+                'duracao_segundos': historico.duracao_segundos,
+                'duracao_formatada': f"{historico.duracao_segundos//60}m {historico.duracao_segundos%60}s" if historico.duracao_segundos else None,
+                'transcricao': historico.transcricao,
+                'observacoes': historico.observacoes,
+                'sucesso': historico.sucesso,
+                'converteu_lead': historico.converteu_lead,
+                'converteu_venda': historico.converteu_venda,
+                'valor_venda': historico.valor_venda,
+                'origem_contato': historico.origem_contato,
+            })
+        
+        # Serializar atendimentos
+        atendimentos_data = []
+        for atendimento in atendimentos:
+            # Buscar respostas detalhadas
+            respostas = atendimento.get_respostas_formatadas()
+            
+            atendimentos_data.append({
+                'id': atendimento.id,
+                'fluxo': {
+                    'id': atendimento.fluxo.id,
+                    'nome': atendimento.fluxo.nome,
+                    'tipo_fluxo': atendimento.fluxo.tipo_fluxo,
+                    'descricao': atendimento.fluxo.descricao,
+                },
+                'status': atendimento.status,
+                'status_display': atendimento.get_status_display(),
+                'data_inicio': atendimento.data_inicio.strftime('%d/%m/%Y %H:%M:%S'),
+                'data_conclusao': atendimento.data_conclusao.strftime('%d/%m/%Y %H:%M:%S') if atendimento.data_conclusao else None,
+                'questao_atual': atendimento.questao_atual,
+                'total_questoes': atendimento.total_questoes,
+                'questoes_respondidas': atendimento.questoes_respondidas,
+                'progresso_percentual': atendimento.get_progresso_percentual(),
+                'tempo_total': atendimento.tempo_total,
+                'tempo_formatado': atendimento.get_tempo_formatado(),
+                'tentativas_atual': atendimento.tentativas_atual,
+                'max_tentativas': atendimento.max_tentativas,
+                'score_qualificacao': atendimento.score_qualificacao,
+                'observacoes': atendimento.observacoes,
+                'historico_contato_id': atendimento.historico_contato.id if atendimento.historico_contato else None,
+                'respostas': respostas,
+                'dados_respostas': atendimento.dados_respostas,
+            })
+        
+        # Calcular estatísticas da jornada
+        total_contatos = len(historicos_data)
+        contatos_sucesso = sum(1 for h in historicos_data if h['sucesso'])
+        total_atendimentos = len(atendimentos_data)
+        atendimentos_completados = sum(1 for a in atendimentos_data if a['status'] == 'completado')
+        
+        # Timeline unificada (contatos + início de atendimentos)
+        timeline = []
+        
+        # Adicionar contatos à timeline
+        for historico in historicos_data:
+            timeline.append({
+                'tipo': 'contato',
+                'data': historico['data_hora'],
+                'timestamp': historico['data_hora'],
+                'titulo': f"Contato - {historico['status_display']}",
+                'descricao': f"Telefone: {historico['telefone']}",
+                'detalhes': historico,
+                'icone': 'phone',
+                'cor': '#3498db' if historico['sucesso'] else '#e74c3c'
+            })
+        
+        # Adicionar atendimentos à timeline
+        for atendimento in atendimentos_data:
+            timeline.append({
+                'tipo': 'atendimento',
+                'data': atendimento['data_inicio'],
+                'timestamp': atendimento['data_inicio'],
+                'titulo': f"Atendimento - {atendimento['fluxo']['nome']}",
+                'descricao': f"Status: {atendimento['status_display']} ({atendimento['progresso_percentual']}%)",
+                'detalhes': atendimento,
+                'icone': 'comments',
+                'cor': '#27ae60' if atendimento['status'] == 'completado' else '#f39c12'
+            })
+        
+        # Ordenar timeline por data
+        timeline.sort(key=lambda x: x['timestamp'])
+        
+        response_data = {
+            'lead': lead_data,
+            'historico_contatos': historicos_data,
+            'atendimentos': atendimentos_data,
+            'timeline': timeline,
+            'estatisticas': {
+                'total_contatos': total_contatos,
+                'contatos_sucesso': contatos_sucesso,
+                'taxa_sucesso_contatos': round((contatos_sucesso / total_contatos) * 100, 1) if total_contatos > 0 else 0,
+                'total_atendimentos': total_atendimentos,
+                'atendimentos_completados': atendimentos_completados,
+                'taxa_completude_atendimentos': round((atendimentos_completados / total_atendimentos) * 100, 1) if total_atendimentos > 0 else 0,
+                'primeiro_contato': historicos_data[0]['data_hora'] if historicos_data else None,
+                'ultimo_contato': historicos_data[-1]['data_hora'] if historicos_data else None,
+                'duracao_jornada_dias': None,  # Calcular depois se necessário
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Erro na API de jornada do cliente: {str(e)}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({
+            'error': f'Erro ao carregar jornada do cliente: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def api_atendimento_em_tempo_real(request):
+    """API para acompanhar atendimento em tempo real"""
+    try:
+        atendimento_id = request.GET.get('atendimento_id')
+        
+        if not atendimento_id:
+            return JsonResponse({
+                'error': 'atendimento_id é obrigatório'
+            }, status=400)
+        
+        try:
+            atendimento = AtendimentoFluxo.objects.select_related(
+                'lead', 'fluxo', 'historico_contato'
+            ).get(id=atendimento_id)
+        except AtendimentoFluxo.DoesNotExist:
+            return JsonResponse({'error': 'Atendimento não encontrado'}, status=404)
+        
+        # Questão atual detalhada
+        questao_atual = atendimento.get_questao_atual_obj()
+        questao_data = None
+        if questao_atual:
+            questao_data = {
+                'id': questao_atual.id,
+                'indice': questao_atual.indice,
+                'titulo': questao_atual.titulo,
+                'descricao': questao_atual.descricao,
+                'tipo_questao': questao_atual.tipo_questao,
+                'tipo_validacao': questao_atual.tipo_validacao,
+                'opcoes_resposta': questao_atual.get_opcoes_formatadas(),
+                'resposta_padrao': questao_atual.resposta_padrao,
+                'permite_voltar': questao_atual.permite_voltar,
+                'permite_editar': questao_atual.permite_editar,
+            }
+        
+        # Próxima questão
+        proxima_questao = atendimento.get_proxima_questao()
+        proxima_questao_data = None
+        if proxima_questao:
+            proxima_questao_data = {
+                'id': proxima_questao.id,
+                'indice': proxima_questao.indice,
+                'titulo': proxima_questao.titulo,
+            }
+        
+        # Todas as questões do fluxo
+        todas_questoes = []
+        for questao in atendimento.fluxo.get_questoes_ordenadas():
+            respondida = str(questao.indice) in atendimento.dados_respostas
+            resposta_data = atendimento.dados_respostas.get(str(questao.indice), {})
+            
+            todas_questoes.append({
+                'id': questao.id,
+                'indice': questao.indice,
+                'titulo': questao.titulo,
+                'tipo_questao': questao.tipo_questao,
+                'respondida': respondida,
+                'resposta': resposta_data.get('resposta') if respondida else None,
+                'valida': resposta_data.get('valida', False) if respondida else None,
+                'data_resposta': resposta_data.get('data_resposta') if respondida else None,
+            })
+        
+        response_data = {
+            'atendimento': {
+                'id': atendimento.id,
+                'status': atendimento.status,
+                'status_display': atendimento.get_status_display(),
+                'questao_atual': atendimento.questao_atual,
+                'total_questoes': atendimento.total_questoes,
+                'questoes_respondidas': atendimento.questoes_respondidas,
+                'progresso_percentual': atendimento.get_progresso_percentual(),
+                'tempo_total': atendimento.tempo_total,
+                'tempo_formatado': atendimento.get_tempo_formatado(),
+                'data_inicio': atendimento.data_inicio.strftime('%d/%m/%Y %H:%M:%S'),
+                'data_ultima_atividade': atendimento.data_ultima_atividade.strftime('%d/%m/%Y %H:%M:%S'),
+                'tentativas_atual': atendimento.tentativas_atual,
+                'max_tentativas': atendimento.max_tentativas,
+            },
+            'lead': {
+                'id': atendimento.lead.id,
+                'nome': atendimento.lead.nome_razaosocial,
+                'telefone': atendimento.lead.telefone,
+                'email': atendimento.lead.email,
+            },
+            'fluxo': {
+                'id': atendimento.fluxo.id,
+                'nome': atendimento.fluxo.nome,
+                'tipo_fluxo': atendimento.fluxo.tipo_fluxo,
+                'descricao': atendimento.fluxo.descricao,
+            },
+            'questao_atual': questao_data,
+            'proxima_questao': proxima_questao_data,
+            'todas_questoes': todas_questoes,
+            'pode_avancar': atendimento.pode_avancar(),
+            'pode_voltar': atendimento.pode_voltar(),
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Erro na API de tempo real: {str(e)}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({
+            'error': f'Erro ao carregar dados em tempo real: {str(e)}'
+        }, status=500)
